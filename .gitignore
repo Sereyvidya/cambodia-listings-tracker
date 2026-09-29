@@ -1,0 +1,15 @@
+# Real credentials -- never commit these.
+config.yaml
+service_account.json
+*.session
+*.session-journal
+
+# Local data, not meant to be shared via git.
+# (docs/photos/ is NOT covered by this -- that's the published static
+# export's own copy, meant to be committed and pushed for GitHub Pages.)
+/listings.db
+/photos/
+/cambodia_listings.kmz
+
+__pycache__/
+*.pyc

@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambodia Listings Tracker</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #ffffff; --ink: #1f2320; --muted: #6b7268;
+    --line: #e3e1da; --accent: #2f6f4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink);
+  }
+  header {
+    padding: 20px 24px; border-bottom: 1px solid var(--line); background: var(--card);
+    position: sticky; top: 0; z-index: 5;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.3rem; }
+  .sub { color: var(--muted); font-size: 0.85rem; }
+  form.filters {
+    display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 24px;
+    background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  form.filters input, form.filters select {
+    padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
+    font-size: 0.9rem; background: white;
+  }
+  form.filters input[type="number"] { width: 100px; }
+  form.filters button {
+    padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent);
+    color: white; font-size: 0.9rem; cursor: pointer;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px; padding: 20px 24px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .card img { width: 100%; height: 160px; object-fit: cover; background: #eee; }
+  .card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .price { font-size: 1.15rem; font-weight: 600; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+    background: #eef2ee; color: var(--accent); border: 1px solid #d7e5db;
+  }
+  .text { font-size: 0.85rem; color: #3a3f3a; line-height: 1.35; max-height: 4.6em; overflow: hidden; }
+  .meta { font-size: 0.75rem; color: var(--muted); margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
+  .meta a { color: var(--accent); text-decoration: none; }
+  .hide-btn { background: none; border: none; color: var(--muted); font-size: 0.72rem; cursor: pointer; text-decoration: underline; }
+  .empty { padding: 60px 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cambodia Listings Tracker</h1>
+  <div class="sub">{{ count }} listing{{ '' if count == 1 else 's' }} shown &middot; <a href="{{ url_for('map_view') }}">view as map</a></div>
+</header>
+
+<form class="filters" method="get">
+  <input type="number" name="min_price" placeholder="Min $" value="{{ filters.get('min_price', '') }}">
+  <input type="number" name="max_price" placeholder="Max $" value="{{ filters.get('max_price', '') }}">
+
+  <select name="location">
+    <option value="">Any location</option>
+    {% for loc in locations %}
+      <option value="{{ loc }}" {{ 'selected' if filters.get('location') == loc }}>{{ loc }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="property_type">
+    <option value="">Any type</option>
+    {% for pt in property_types %}
+      <option value="{{ pt }}" {{ 'selected' if filters.get('property_type') == pt }}>{{ pt }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="listing_kind">
+    <option value="">Sale or rent</option>
+    <option value="sale" {{ 'selected' if filters.get('listing_kind') == 'sale' }}>For sale</option>
+    <option value="rent" {{ 'selected' if filters.get('listing_kind') == 'rent' }}>For rent</option>
+  </select>
+
+  <select name="source_name">
+    <option value="">Any source group</option>
+    {% for s in sources %}
+      <option value="{{ s }}" {{ 'selected' if filters.get('source_name') == s }}>{{ s }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="has_map">
+    <option value="">Map pin: any</option>
+    <option value="yes" {{ 'selected' if filters.get('has_map') == 'yes' }}>Has map pin</option>
+    <option value="no" {{ 'selected' if filters.get('has_map') == 'no' }}>No map pin</option>
+  </select>
+
+  <input type="text" name="q" placeholder="Search text..." value="{{ filters.get('q', '') }}">
+  <button type="submit">Filter</button>
+  <a href="{{ url_for('index') }}" style="align-self:center; font-size:0.85rem; color:var(--muted);">Clear</a>
+</form>
+
+{% if listings %}
+<div class="grid">
+  {% for l in listings %}
+  <div class="card">
+    {% if l.photo_paths %}
+      <img src="{{ url_for('photo', filename=l.photo_paths[0]) }}" alt="">
+    {% endif %}
+    <div class="card-body">
+      <div class="price">
+        {% if l.price_value %}
+          ${{ '{:,.0f}'.format(l.price_value) }}
+          {% if l.price_currency == 'KHR' %}<span style="font-weight:400;color:var(--muted);font-size:0.75rem;">(from riel, approx.)</span>{% endif %}
+        {% else %}
+          <span style="color:var(--muted); font-weight:400;">price not detected</span>
+        {% endif %}
+      </div>
+      <div class="tags">
+        {% if l.listing_kind %}<span class="tag">{{ l.listing_kind }}</span>{% endif %}
+        {% if l.property_type %}<span class="tag">{{ l.property_type }}</span>{% endif %}
+        {% if l.location %}<span class="tag">{{ l.location }}</span>{% endif %}
+        {% if l.bedrooms %}<span class="tag">{{ l.bedrooms }} bed</span>{% endif %}
+        {% if l.size_text %}<span class="tag">{{ l.size_text }}</span>{% endif %}
+        {% if not l.maps_link %}<span class="tag" style="background:#fbeeee;color:#a33;border-color:#f0d3d3;">no map pin</span>{% endif %}
+      </div>
+      <div class="text">{{ l.raw_text }}</div>
+      <div class="meta">
+        <span>{{ l.source_name }} &middot; {{ (l.posted_at or l.fetched_at)[:10] }}{% if l.posted_by %} &middot; {{ l.posted_by }}{% endif %}</span>
+        <span>
+          {% if l.maps_link %}<a href="{{ l.maps_link }}" target="_blank">map</a> &middot;{% endif %}
+          {% if l.message_link %}<a href="{{ l.message_link }}" target="_blank">open</a> &middot;{% endif %}
+          <form method="post" action="{{ url_for('hide', listing_id=l.id) }}" style="display:inline;">
+            <button type="submit" class="hide-btn">hide</button>
+          </form>
+        </span>
+      </div>
+      {% if l.contact %}<div class="meta">contact: {{ l.contact }}</div>{% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">No listings yet. Run <code>python listener.py backfill</code> to pull some in, or loosen your filters.</div>
+{% endif %}
+
+</body>
+</html>

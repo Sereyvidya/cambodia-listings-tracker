@@ -1,0 +1,7 @@
+telethon>=1.36
+flask>=3.0
+PyYAML>=6.0
+requests>=2.31
+gspread>=6.0
+google-auth>=2.30
+simplekml>=1.3

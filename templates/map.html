@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambodia Listings Tracker — Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css">
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #ffffff; --ink: #1f2320; --muted: #6b7268;
+    --line: #e3e1da; --accent: #2f6f4f;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink); display: flex; flex-direction: column;
+  }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--line); background: var(--card); }
+  h1 { margin: 0 0 4px; font-size: 1.2rem; }
+  .sub { color: var(--muted); font-size: 0.85rem; }
+  .sub a { color: var(--accent); }
+  form.filters {
+    display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 24px;
+    background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  form.filters input, form.filters select {
+    padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; font-size: 0.85rem; background: white;
+  }
+  form.filters input[type="number"] { width: 90px; }
+  form.filters button {
+    padding: 6px 14px; border: none; border-radius: 6px; background: var(--accent); color: white; cursor: pointer;
+  }
+  #map { flex: 1; }
+  .popup-card { width: 220px; }
+  .popup-price { font-weight: 600; font-size: 1rem; }
+  .popup-tags { font-size: 0.72rem; color: var(--muted); margin: 2px 0 6px; }
+  .popup-text { font-size: 0.8rem; max-height: 4.5em; overflow: hidden; margin-bottom: 6px; }
+  .popup-links a { color: var(--accent); margin-right: 8px; font-size: 0.8rem; }
+  .leaflet-popup-content { margin: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cambodia Listings Tracker — Map</h1>
+  <div class="sub">{{ count }} pinned listing{{ '' if count == 1 else 's' }} &middot; <a href="{{ url_for('index') }}">view as list</a></div>
+</header>
+
+<form class="filters" method="get">
+  <input type="number" name="min_price" placeholder="Min $" value="{{ filters.get('min_price', '') }}">
+  <input type="number" name="max_price" placeholder="Max $" value="{{ filters.get('max_price', '') }}">
+
+  <select name="location">
+    <option value="">Any location</option>
+    {% for loc in locations %}
+      <option value="{{ loc }}" {{ 'selected' if filters.get('location') == loc }}>{{ loc }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="property_type">
+    <option value="">Any type</option>
+    {% for pt in property_types %}
+      <option value="{{ pt }}" {{ 'selected' if filters.get('property_type') == pt }}>{{ pt }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="listing_kind">
+    <option value="">Sale or rent</option>
+    <option value="sale" {{ 'selected' if filters.get('listing_kind') == 'sale' }}>For sale</option>
+    <option value="rent" {{ 'selected' if filters.get('listing_kind') == 'rent' }}>For rent</option>
+  </select>
+
+  <select name="source_name">
+    <option value="">Any source group</option>
+    {% for s in sources %}
+      <option value="{{ s }}" {{ 'selected' if filters.get('source_name') == s }}>{{ s }}</option>
+    {% endfor %}
+  </select>
+
+  <input type="text" name="q" placeholder="Search text..." value="{{ filters.get('q', '') }}">
+  <button type="submit">Filter</button>
+  <a href="{{ url_for('map_view') }}" style="align-self:center; font-size:0.85rem; color:var(--muted);">Clear</a>
+</form>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script>
+  const listings = {{ listings | tojson }};
+
+  function esc(s) {
+    return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  const map = L.map("map").setView([11.5564, 104.9282], 12);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  // Listings are geocoded at the neighborhood level, so many share the
+  // exact same coordinate -- cluster them so overlapping pins don't just
+  // silently stack and hide each other.
+  const clusterGroup = L.markerClusterGroup();
+
+  listings.forEach(l => {
+    if (l.lat == null || l.lon == null) return;
+    const price = l.price_value ? ("$" + Number(l.price_value).toLocaleString()) : "price n/a";
+    const tags = [l.listing_kind, l.property_type, l.location, l.size_text].filter(Boolean).join(" · ");
+    const photo = (l.photo_paths && l.photo_paths.length)
+      ? `<img src="/photos/${esc(l.photo_paths[0])}" style="width:100%;height:100px;object-fit:cover;border-radius:6px;margin-bottom:6px;">`
+      : "";
+    const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">map</a>` : "";
+    const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
+
+    const marker = L.marker([l.lat, l.lon]);
+    marker.bindPopup(`
+      <div class="popup-card">
+        ${photo}
+        <div class="popup-price">${esc(price)}</div>
+        <div class="popup-tags">${esc(tags)}</div>
+        <div class="popup-text">${esc((l.raw_text || "").slice(0, 140))}</div>
+        <div class="popup-links">${mapLink}${openLink}</div>
+      </div>
+    `);
+    clusterGroup.addLayer(marker);
+  });
+
+  map.addLayer(clusterGroup);
+  if (listings.length) {
+    // At this point in page load, Leaflet's own CSS may not have finished
+    // applying yet, so the container's measured size is still stale and
+    // fitBounds clamps to zoom 0 (whole world) even though it centers
+    // correctly. Deferring one tick lets layout settle first.
+    setTimeout(() => {
+      map.invalidateSize();
+      map.fitBounds(clusterGroup.getBounds().pad(0.15));
+    }, 0);
+  }
+</script>
+
+</body>
+</html>

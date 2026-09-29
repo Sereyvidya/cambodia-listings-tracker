@@ -1,0 +1,69 @@
+# Copy this file to config.yaml and fill in your own values.
+# config.yaml is what listener.py and dashboard.py actually read;
+# config.example.yaml is just the template (safe to keep in version control,
+# config.yaml is NOT -- it holds your API credentials).
+
+telegram:
+  # Get these from https://my.telegram.org -> API development tools.
+  # You need a real Telegram account's phone number to generate them.
+  api_id: 123456
+  api_hash: "your_api_hash_here"
+  # Phone number in international format, e.g. "+855912345678"
+  phone: "+855xxxxxxxxx"
+  # A name for the local session file Telethon creates after first login
+  # (so you don't have to log in again every run). Any short string is fine.
+  session_name: "cambodia_listings_session"
+
+groups:
+  # Each entry is a public group/channel username (without the @) or an
+  # invite link you've already joined manually. You must already be a
+  # member (or the group must be public) for the listener to read it.
+  # Examples -- replace with your dad's actual list:
+  - "example_cambodia_realestate_group"
+  - "example_phnompenh_condos_forsale"
+
+settings:
+  # How many days of history to pull the first time the listener runs
+  # against a group. Subsequent runs only fetch new messages.
+  backfill_days: 14
+  # Download photos attached to candidate listings? Uses more disk space
+  # but makes the dashboard much more useful.
+  download_photos: true
+  # Only rows that pass extract.looks_like_listing() get stored -- this
+  # keeps "thanks!" and general chatter out of the dashboard.
+
+# Everything below is used by sync.py, run separately from listener.py
+# (see "Publishing what's collected" in README.md). Each destination can
+# be turned on independently once you've done its one-time setup.
+
+geocoding:
+  # Turns a location string like "BKK1" into map coordinates, using the
+  # free OpenStreetMap Nominatim service -- no API key needed. This hint
+  # is appended to every lookup to keep results inside the right country.
+  region_hint: "Cambodia"
+
+google_sheets:
+  enabled: false
+  # A Google service account JSON key file (see README.md's Google
+  # Sheets setup section). Path is relative to this folder.
+  service_account_file: "service_account.json"
+  # The target spreadsheet's ID -- the long string in its URL:
+  # https://docs.google.com/spreadsheets/d/<SPREADSHEET_ID>/edit
+  # The sheet must be shared with the service account's email (Editor).
+  spreadsheet_id: "your_spreadsheet_id_here"
+
+notify:
+  enabled: false
+  # Group/channel username (without @) or chat ID to post new listings
+  # into -- e.g. a private family Telegram group. The account must
+  # already be a member (same account as `telegram` above).
+  target_chat: "your_family_telegram_group"
+  # Uses its own Telethon session so it doesn't collide with listener.py
+  # reading groups at the same time. Defaults to "<session_name>_notify"
+  # if left blank.
+  session_name: ""
+
+earth_export:
+  # Regenerates a Google Earth .kmz snapshot (cambodia_listings.kmz)
+  # every time sync.py runs. No setup needed -- purely local.
+  enabled: true

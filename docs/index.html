@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cambodia Listings Tracker</title>
+<style>
+  :root {
+    --bg: #f7f6f3; --card: #ffffff; --ink: #1f2320; --muted: #6b7268;
+    --line: #e3e1da; --accent: #2f6f4f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink);
+  }
+  header {
+    padding: 20px 24px; border-bottom: 1px solid var(--line); background: var(--card);
+    position: sticky; top: 0; z-index: 5;
+  }
+  h1 { margin: 0 0 4px; font-size: 1.3rem; }
+  .sub { color: var(--muted); font-size: 0.85rem; }
+  .sub a { color: var(--accent); }
+  form.filters {
+    display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 24px;
+    background: var(--card); border-bottom: 1px solid var(--line);
+  }
+  form.filters input, form.filters select {
+    padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
+    font-size: 0.9rem; background: white;
+  }
+  form.filters input[type="number"] { width: 100px; }
+  form.filters button {
+    padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent);
+    color: white; font-size: 0.9rem; cursor: pointer;
+  }
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px; padding: 20px 24px;
+  }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .card img { width: 100%; height: 160px; object-fit: cover; background: #eee; }
+  .card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
+  .price { font-size: 1.15rem; font-weight: 600; }
+  .tags { display: flex; flex-wrap: wrap; gap: 6px; }
+  .tag {
+    font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
+    background: #eef2ee; color: var(--accent); border: 1px solid #d7e5db;
+  }
+  .text { font-size: 0.85rem; color: #3a3f3a; line-height: 1.35; max-height: 4.6em; overflow: hidden; }
+  .meta { font-size: 0.75rem; color: var(--muted); margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
+  .meta a { color: var(--accent); text-decoration: none; }
+  .empty { padding: 60px 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Cambodia Listings Tracker</h1>
+  <div class="sub"><span id="count"></span> &middot; <a href="map.html">view as map</a></div>
+</header>
+
+<form class="filters" id="filters">
+  <input type="number" id="min_price" placeholder="Min $">
+  <input type="number" id="max_price" placeholder="Max $">
+
+  <select id="location"><option value="">Any location</option></select>
+  <select id="property_type"><option value="">Any type</option></select>
+
+  <select id="listing_kind">
+    <option value="">Sale or rent</option>
+    <option value="sale">For sale</option>
+    <option value="rent">For rent</option>
+  </select>
+
+  <select id="source_name"><option value="">Any source group</option></select>
+
+  <input type="text" id="q" placeholder="Search text...">
+  <button type="submit">Filter</button>
+  <a href="#" id="clear" style="align-self:center; font-size:0.85rem; color:var(--muted);">Clear</a>
+</form>
+
+<div class="grid" id="grid"></div>
+<div class="empty" id="empty" style="display:none;">No listings match these filters.</div>
+
+<script>
+let listings = [];
+
+function esc(s) {
+  return (s || "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function uniqueSorted(arr) {
+  return [...new Set(arr.filter(Boolean))].sort();
+}
+function populateSelect(sel, values) {
+  values.forEach(v => {
+    const opt = document.createElement("option");
+    opt.value = v; opt.textContent = v;
+    sel.appendChild(opt);
+  });
+}
+
+function render() {
+  const minP = parseFloat(document.getElementById("min_price").value);
+  const maxP = parseFloat(document.getElementById("max_price").value);
+  const loc = document.getElementById("location").value;
+  const ptype = document.getElementById("property_type").value;
+  const kind = document.getElementById("listing_kind").value;
+  const src = document.getElementById("source_name").value;
+  const q = document.getElementById("q").value.trim().toLowerCase();
+
+  const filtered = listings.filter(l => {
+    if (!isNaN(minP) && !(l.price_value >= minP)) return false;
+    if (!isNaN(maxP) && !(l.price_value <= maxP)) return false;
+    if (loc && l.location !== loc) return false;
+    if (ptype && l.property_type !== ptype) return false;
+    if (kind && l.listing_kind !== kind) return false;
+    if (src && l.source_name !== src) return false;
+    if (q && !(l.raw_text || "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+
+  document.getElementById("count").textContent = `${filtered.length} listing${filtered.length === 1 ? "" : "s"} shown`;
+
+  const grid = document.getElementById("grid");
+  grid.innerHTML = "";
+  document.getElementById("empty").style.display = filtered.length ? "none" : "block";
+
+  filtered.forEach(l => {
+    const price = l.price_value
+      ? `$${Number(l.price_value).toLocaleString()}` + (l.price_currency === "KHR" ? ' <span style="font-weight:400;color:var(--muted);font-size:0.75rem;">(from riel, approx.)</span>' : "")
+      : '<span style="color:var(--muted); font-weight:400;">price not detected</span>';
+    const tags = [l.listing_kind, l.property_type, l.location, l.bedrooms ? `${l.bedrooms} bed` : null, l.size_text]
+      .filter(Boolean).map(t => `<span class="tag">${esc(String(t))}</span>`).join("");
+    const img = (l.photo_paths && l.photo_paths.length)
+      ? `<img src="photos/${esc(l.photo_paths[0])}" alt="">` : "";
+    const date = (l.posted_at || l.fetched_at || "").slice(0, 10);
+    const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">map</a> &middot; ` : "";
+    const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
+
+    const card = document.createElement("div");
+    card.className = "card";
+    card.innerHTML = `
+      ${img}
+      <div class="card-body">
+        <div class="price">${price}</div>
+        <div class="tags">${tags}</div>
+        <div class="text">${esc(l.raw_text || "")}</div>
+        <div class="meta">
+          <span>${esc(l.source_name || "")} &middot; ${esc(date)}${l.posted_by ? " &middot; " + esc(l.posted_by) : ""}</span>
+          <span>${mapLink}${openLink}</span>
+        </div>
+        ${l.contact ? `<div class="meta">contact: ${esc(l.contact)}</div>` : ""}
+      </div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+document.getElementById("filters").addEventListener("submit", e => { e.preventDefault(); render(); });
+document.getElementById("clear").addEventListener("click", e => {
+  e.preventDefault();
+  document.getElementById("filters").reset();
+  render();
+});
+
+fetch("listings.json").then(r => r.json()).then(data => {
+  listings = data;
+  populateSelect(document.getElementById("location"), uniqueSorted(listings.map(l => l.location)));
+  populateSelect(document.getElementById("property_type"), uniqueSorted(listings.map(l => l.property_type)));
+  populateSelect(document.getElementById("source_name"), uniqueSorted(listings.map(l => l.source_name)));
+  render();
+});
+</script>
+
+</body>
+</html>
