@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS listings (
     source_map_resolved_at TEXT,        -- when we tried resolving source_maps_link to coordinates (success or fail)
     sheet_synced_at TEXT,               -- when this row was pushed to Google Sheets
     notified_at TEXT,                   -- when a Telegram notification was sent for this row
+    is_duplicate_link INTEGER NOT NULL DEFAULT 0,  -- see db.compute_duplicate_link_exclusions()
     hidden INTEGER NOT NULL DEFAULT 0,  -- lets the dashboard let a user hide junk
     UNIQUE(source_name, message_id)
 );
@@ -77,6 +78,7 @@ _MIGRATED_COLUMNS = {
     "notified_at": "TEXT",
     "source_maps_link": "TEXT",
     "source_map_resolved_at": "TEXT",
+    "is_duplicate_link": "INTEGER NOT NULL DEFAULT 0",
 }
 
 
@@ -168,9 +170,9 @@ def query_listings(
     elif has_map == "no":
         clauses.append("maps_link IS NULL")
     if has_source_map == "yes":
-        clauses.append("source_maps_link IS NOT NULL")
+        clauses.append("source_maps_link IS NOT NULL AND is_duplicate_link = 0")
     elif has_source_map == "no":
-        clauses.append("source_maps_link IS NULL")
+        clauses.append("(source_maps_link IS NULL OR is_duplicate_link = 1)")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -243,6 +245,62 @@ def mark_source_map_resolved(conn, listing_id):
     )
 
 
+def compute_duplicate_link_exclusions(conn):
+    """Flags listings whose source_maps_link is shared with other visible
+    listings, so Sheets/Telegram/Earth/the published site only ever show
+    a trustworthy, one-per-property set of real map links. Two distinct
+    patterns show up in practice, and they need opposite handling:
+
+    - The SAME unit reposted over time, or cross-posted to another
+      channel, with the same price each time -- a genuine duplicate.
+      Keep only the most recently posted copy, flag the rest.
+    - The SAME link reused across visibly DIFFERENT properties (very
+      different prices under one link) -- some channels paste one fixed
+      reference point (e.g. their office) into every post instead of a
+      real per-listing pin. None of these are trustworthy as "this pin is
+      where THIS property is", so the whole group gets flagged, not just
+      the extras.
+
+    Recomputed from scratch each call (it's cheap, and re-running sync.py
+    after new backfills needs a full recheck, not an incremental one)."""
+    conn.execute("UPDATE listings SET is_duplicate_link = 0")
+
+    dup_links = conn.execute(
+        """SELECT source_maps_link FROM listings
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL
+           GROUP BY source_maps_link HAVING COUNT(*) > 1"""
+    ).fetchall()
+
+    reposts_collapsed = 0
+    reused_link_groups = 0
+    for row in dup_links:
+        link = row["source_maps_link"]
+        members = conn.execute(
+            """SELECT id, price_value, posted_at, fetched_at FROM listings
+               WHERE source_maps_link = ? AND hidden = 0""",
+            (link,),
+        ).fetchall()
+        distinct_prices = {m["price_value"] for m in members if m["price_value"] is not None}
+
+        if len(distinct_prices) <= 1:
+            # Genuine repost/cross-post: keep the newest, flag the rest.
+            newest = max(members, key=lambda m: m["posted_at"] or m["fetched_at"] or "")
+            exclude_ids = [m["id"] for m in members if m["id"] != newest["id"]]
+            reposts_collapsed += len(exclude_ids)
+        else:
+            # Reused reference point across different properties: none of
+            # them get to claim this pin.
+            exclude_ids = [m["id"] for m in members]
+            reused_link_groups += 1
+
+        conn.executemany(
+            "UPDATE listings SET is_duplicate_link = 1 WHERE id = ?",
+            [(i,) for i in exclude_ids],
+        )
+
+    return reposts_collapsed, reused_link_groups
+
+
 def find_synced_duplicate(conn, dedup_hash, exclude_id):
     """id of an already-Sheet-synced listing sharing this dedup_hash, if any --
     used to avoid pushing the same cross-posted unit into the sheet twice."""
@@ -254,12 +312,15 @@ def find_synced_duplicate(conn, dedup_hash, exclude_id):
 
 
 def listings_pending_sheet_sync(conn):
-    """Visible listings with a REAL poster-provided map link, not yet
-    pushed to the Sheet -- dad only wants listings the poster themselves
-    pinned a location for, not our own neighborhood-level guess."""
+    """Visible listings with a REAL, non-duplicate poster-provided map
+    link, not yet pushed to the Sheet -- dad only wants listings the
+    poster themselves pinned a location for, not our own neighborhood-
+    level guess (and not a link that's actually shared with other,
+    different listings -- see compute_duplicate_link_exclusions)."""
     return conn.execute(
         """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND sheet_synced_at IS NULL
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND is_duplicate_link = 0
+                 AND sheet_synced_at IS NULL
            ORDER BY id"""
     ).fetchall()
 
@@ -272,11 +333,12 @@ def mark_sheet_synced(conn, listing_id):
 
 
 def listings_pending_notify(conn):
-    """Visible listings with a real poster-provided map link, not yet sent
-    to the Telegram notify group."""
+    """Visible listings with a real, non-duplicate poster-provided map
+    link, not yet sent to the Telegram notify group."""
     return conn.execute(
         """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND notified_at IS NULL
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND is_duplicate_link = 0
+                 AND notified_at IS NULL
            ORDER BY id"""
     ).fetchall()
 
@@ -297,6 +359,7 @@ def listings_for_earth_export(conn):
     other between runs.)"""
     return conn.execute(
         """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND lat IS NOT NULL
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND is_duplicate_link = 0
+                 AND lat IS NOT NULL
            ORDER BY id"""
     ).fetchall()

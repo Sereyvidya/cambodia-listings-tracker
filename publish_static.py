@@ -47,7 +47,18 @@ def export():
         listings.append(d)
 
     (DOCS_DIR / "listings.json").write_text(json.dumps(listings))
-    print(f"Exported {len(listings)} listings and their photos to {DOCS_DIR}")
+
+    # Remove photos left over from listings that no longer qualify (e.g.
+    # excluded as a duplicate/reused map link since the last publish) --
+    # otherwise docs/photos/ only ever grows.
+    still_needed = {name for l in listings for name in l["photo_paths"]}
+    removed = 0
+    for existing in DOCS_PHOTOS_DIR.iterdir():
+        if existing.name not in still_needed:
+            existing.unlink()
+            removed += 1
+
+    print(f"Exported {len(listings)} listings and their photos to {DOCS_DIR} ({removed} stale photo(s) removed)")
 
 
 if __name__ == "__main__":

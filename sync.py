@@ -13,12 +13,13 @@ process -- run it by hand, or on a schedule yourself (cron/launchd) if
 you want it automatic. Safe to run repeatedly: every step only acts on
 rows it hasn't already processed.
 
-Order matters: geocoding/resolving must happen before Sheets sync /
-notify / Earth export, since all three only touch listings with a
+Order matters: geocoding/resolving/dedup must happen before Sheets sync
+/ notify / Earth export, since all three only touch listings with a
 source_maps_link -- a REAL Google Maps link the poster themselves
 included, not our own neighborhood-level guess (see extract.py's
-extract_map_link and db.py's column comments for why that distinction
-matters here).
+extract_map_link and db.py's column comments) -- that also isn't shared
+with a repost or a different property (see
+db.compute_duplicate_link_exclusions).
 """
 
 import asyncio
@@ -77,6 +78,9 @@ def main():
 
         src_checked, src_resolved = resolve_source_map_links(conn)
         print(f"Source map links: resolved {src_resolved}/{src_checked} to precise coordinates")
+
+        reposts, reused_groups = db.compute_duplicate_link_exclusions(conn)
+        print(f"Duplicate map links: collapsed {reposts} repost(s), excluded {reused_groups} reused-link group(s)")
 
         if cfg.get("google_sheets", {}).get("enabled"):
             import sheets_sync

@@ -183,11 +183,22 @@ def extract_location(text):
 
 
 def extract_property_type(text):
+    """Picks whichever keyword occurs EARLIEST in the text, not whichever
+    is checked first in PROPERTY_TYPES -- these posts almost always name
+    what's actually being sold up front, then mention other structures
+    in passing (most commonly: a house listing stating its land size,
+    e.g. "ទំហំដី: 15m x 50m", would otherwise always get overridden to
+    "land" just because "ដី" happens to come first in the dict, even
+    though "ផ្ទះ" (house) appeared earlier in the actual post)."""
     lower = text.lower()
+    best_kw = None
+    best_pos = None
     for kw, normalized in PROPERTY_TYPES.items():
-        if kw in lower:
-            return normalized
-    return None
+        pos = lower.find(kw)
+        if pos != -1 and (best_pos is None or pos < best_pos):
+            best_pos = pos
+            best_kw = normalized
+    return best_kw
 
 
 def extract_bedrooms(text):
