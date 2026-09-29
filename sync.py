@@ -1,8 +1,9 @@
 """
-Publishes what listener.py has collected: geocodes locations into a
-Google Maps link, pushes qualifying listings to Google Sheets, notifies
-your Telegram group, and refreshes the Google Earth export -- each step
-independently on/off in config.yaml.
+Publishes what listener.py has collected: geocodes locations, resolves
+any real map links posters included to precise coordinates, pushes
+qualifying listings to Google Sheets, notifies your Telegram group, and
+refreshes the Google Earth export -- each step independently on/off in
+config.yaml.
 
 Run this whenever you want to publish what's been collected so far:
     python sync.py
@@ -12,9 +13,12 @@ process -- run it by hand, or on a schedule yourself (cron/launchd) if
 you want it automatic. Safe to run repeatedly: every step only acts on
 rows it hasn't already processed.
 
-Order matters: geocoding must happen before Sheets sync / notify /
-Earth export, since all three only touch listings that have a
-maps_link.
+Order matters: geocoding/resolving must happen before Sheets sync /
+notify / Earth export, since all three only touch listings with a
+source_maps_link -- a REAL Google Maps link the poster themselves
+included, not our own neighborhood-level guess (see extract.py's
+extract_map_link and db.py's column comments for why that distinction
+matters here).
 """
 
 import asyncio
@@ -45,6 +49,24 @@ def geocode_pending(conn, cfg):
     return len(pending), resolved
 
 
+def resolve_source_map_links(conn):
+    """For listings where the poster included a real Google Maps link,
+    follow it to get precise coordinates (overwriting the neighborhood-
+    level guess from geocode_pending, if any) -- this doesn't change
+    whether a listing qualifies as having a map link (that's just whether
+    source_maps_link is set at all), only how accurate its pin is."""
+    pending = db.listings_needing_source_map_resolve(conn)
+    resolved = 0
+    for row in pending:
+        coords = geocode.resolve_source_map_link(row["source_maps_link"])
+        if coords:
+            lat, lon = coords
+            db.set_geocode_result(conn, row["id"], lat, lon, geocode.maps_link(lat, lon))
+            resolved += 1
+        db.mark_source_map_resolved(conn, row["id"])
+    return len(pending), resolved
+
+
 def main():
     cfg = load_config()
     db.init_db()
@@ -52,6 +74,9 @@ def main():
     with db.get_conn() as conn:
         checked, resolved = geocode_pending(conn, cfg)
         print(f"Geocoding: checked {checked} new location(s), resolved {resolved}")
+
+        src_checked, src_resolved = resolve_source_map_links(conn)
+        print(f"Source map links: resolved {src_resolved}/{src_checked} to precise coordinates")
 
         if cfg.get("google_sheets", {}).get("enabled"):
             import sheets_sync

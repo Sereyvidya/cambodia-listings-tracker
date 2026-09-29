@@ -1,8 +1,9 @@
 """
-Exports a Google Earth-ready .kmz snapshot of every visible, geocoded
-listing (i.e. the same "has a Google Maps link" set that goes to the
-Sheet). Each pin embeds the listing's first photo (if one was
-downloaded) and its full text in the popup.
+Exports a Google Earth-ready .kmz snapshot of every visible listing that
+has a REAL, poster-provided Google Maps link (i.e. the same set that
+goes to the Sheet -- see db.listings_for_earth_export). Each pin embeds
+the listing's first photo (if one was downloaded) and its full text in
+the popup, at the precise coordinates resolved from that link.
 
 Open the resulting file in Google Earth Pro (double-click it) or upload
 it via earth.google.com -> Projects -> Import KML file.
@@ -43,6 +44,8 @@ def build_description(row):
     if row["posted_by"]:
         lines.append(f"Posted by: {row['posted_by']}")
     lines.append(f"Source: {row['source_name']} ({(row['posted_at'] or row['fetched_at'])[:10]})")
+    if row["source_maps_link"]:
+        lines.append(f'<a href="{row["source_maps_link"]}">Open in Google Maps</a>')
     return "<br/>".join(l for l in lines if l)
 
 

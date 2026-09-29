@@ -95,9 +95,15 @@
   </select>
 
   <select name="has_map">
-    <option value="">Map pin: any</option>
-    <option value="yes" {{ 'selected' if filters.get('has_map') == 'yes' }}>Has map pin</option>
-    <option value="no" {{ 'selected' if filters.get('has_map') == 'no' }}>No map pin</option>
+    <option value="">Map pin (any): any</option>
+    <option value="yes" {{ 'selected' if filters.get('has_map') == 'yes' }}>Has map pin (any)</option>
+    <option value="no" {{ 'selected' if filters.get('has_map') == 'no' }}>No map pin at all</option>
+  </select>
+
+  <select name="has_source_map">
+    <option value="">Real map link: any</option>
+    <option value="yes" {{ 'selected' if filters.get('has_source_map') == 'yes' }}>Has real map link</option>
+    <option value="no" {{ 'selected' if filters.get('has_source_map') == 'no' }}>No real map link</option>
   </select>
 
   <input type="text" name="q" placeholder="Search text..." value="{{ filters.get('q', '') }}">
@@ -127,13 +133,14 @@
         {% if l.location %}<span class="tag">{{ l.location }}</span>{% endif %}
         {% if l.bedrooms %}<span class="tag">{{ l.bedrooms }} bed</span>{% endif %}
         {% if l.size_text %}<span class="tag">{{ l.size_text }}</span>{% endif %}
+        {% if l.source_maps_link %}<span class="tag" style="background:#eaf5ee;color:#1e7e3c;border-color:#c9e8d3;">&#10003; real map link</span>{% endif %}
         {% if not l.maps_link %}<span class="tag" style="background:#fbeeee;color:#a33;border-color:#f0d3d3;">no map pin</span>{% endif %}
       </div>
       <div class="text">{{ l.raw_text }}</div>
       <div class="meta">
         <span>{{ l.source_name }} &middot; {{ (l.posted_at or l.fetched_at)[:10] }}{% if l.posted_by %} &middot; {{ l.posted_by }}{% endif %}</span>
         <span>
-          {% if l.maps_link %}<a href="{{ l.maps_link }}" target="_blank">map</a> &middot;{% endif %}
+          {% if l.source_maps_link %}<a href="{{ l.source_maps_link }}" target="_blank">real map</a> &middot;{% elif l.maps_link %}<a href="{{ l.maps_link }}" target="_blank">approx. map</a> &middot;{% endif %}
           {% if l.message_link %}<a href="{{ l.message_link }}" target="_blank">open</a> &middot;{% endif %}
           <form method="post" action="{{ url_for('hide', listing_id=l.id) }}" style="display:inline;">
             <button type="submit" class="hide-btn">hide</button>

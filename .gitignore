@@ -13,3 +13,6 @@ service_account.json
 
 __pycache__/
 *.pyc
+
+# Claude Code session tooling artifact, not part of the project.
+/.claude/scheduled_tasks.lock

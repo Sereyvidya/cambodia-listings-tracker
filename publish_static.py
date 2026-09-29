@@ -1,7 +1,8 @@
 """
 Exports a static, shareable snapshot of the qualifying listings (visible,
-with a map pin -- the same set that goes to Sheets/Telegram/Earth) into
-docs/, ready for GitHub Pages. No backend involved: docs/index.html and
+with a REAL poster-provided map link -- the same set that goes to
+Sheets/Telegram/Earth, see db.listings_pending_sheet_sync) into docs/,
+ready for GitHub Pages. No backend involved: docs/index.html and
 docs/map.html are plain static pages that fetch docs/listings.json and
 filter it client-side in the browser.
 
@@ -26,7 +27,7 @@ DOCS_PHOTOS_DIR = DOCS_DIR / "photos"
 def export():
     db.init_db()
     with db.get_conn() as conn:
-        rows = db.query_listings(conn, has_map="yes", limit=5000)
+        rows = db.query_listings(conn, has_source_map="yes", limit=5000)
 
     DOCS_PHOTOS_DIR.mkdir(parents=True, exist_ok=True)
     listings = []
@@ -40,6 +41,9 @@ def export():
                 shutil.copy2(src, DOCS_PHOTOS_DIR / name)
                 copied.append(name)
         d["photo_paths"] = copied
+        # The published site should link to the poster's own real link,
+        # not our derived (and now redundant) coordinate-search one.
+        d["maps_link"] = d["source_maps_link"]
         listings.append(d)
 
     (DOCS_DIR / "listings.json").write_text(json.dumps(listings))

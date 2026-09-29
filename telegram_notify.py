@@ -10,8 +10,8 @@ so this just means one extra one-time login code the first time this
 runs -- it avoids two processes fighting over the same local session
 file, which Telethon's session storage doesn't handle well.
 
-Only listings with a maps_link (successfully geocoded) get sent, same
-rule as the Sheet sync.
+Only listings with a source_maps_link (a REAL Google Maps link the
+poster themselves included) get sent, same rule as the Sheet sync.
 """
 
 from telethon import TelegramClient
@@ -50,7 +50,7 @@ def format_listing_message(row):
     if row["posted_by"]:
         lines.append(f"Posted by: {row['posted_by']}")
     lines.append(f"Source: {row['source_name']}")
-    lines.append(f"Map: {row['maps_link']}")
+    lines.append(f"Map: {row['source_maps_link']}")
     return "\n".join(lines)
 
 

@@ -140,6 +140,17 @@ SIZE_DIMENSIONS_RE = re.compile(
 PHONE_RE = re.compile(r"(?:\+?855|0)[\s\-]?\d{2}[\s\-]?\d{3}[\s\-]?\d{3,4}")
 TELEGRAM_HANDLE_RE = re.compile(r"@[A-Za-z0-9_]{4,}")
 
+# A real Google Maps link the poster themselves dropped a pin at and
+# included -- e.g. "Map: https://maps.app.goo.gl/xyz". This is much more
+# precise than extract_location()'s neighborhood-level guess since it's
+# exactly where the poster placed it, not a district centroid. Some
+# Telegram channels include this on nearly every post; others (almost)
+# never do -- see find_similar_channels.py for finding more of the former.
+MAP_LINK_RE = re.compile(
+    r"https?://(?:www\.)?(?:maps\.app\.goo\.gl/\S+|goo\.gl/maps/\S+|(?:maps\.)?google\.[a-z.]+/maps\S*)",
+    re.IGNORECASE,
+)
+
 
 def extract_price(text):
     """Returns (value_in_usd_or_None, currency_or_None, raw_matched_substring)."""
@@ -227,6 +238,11 @@ def extract_contact(text):
     return " / ".join(parts) if parts else None
 
 
+def extract_map_link(text):
+    m = MAP_LINK_RE.search(text)
+    return m.group(0).rstrip(").,;!。") if m else None
+
+
 def make_dedup_hash(price_value, location, property_type, text):
     """Rough cross-post detector: same rounded price + location + type +
     a chunk of normalized text. Not exact -- two different units that
@@ -251,6 +267,7 @@ def parse_message(text):
     size_text = extract_size(text)
     listing_kind = extract_listing_kind(text)
     contact = extract_contact(text)
+    source_maps_link = extract_map_link(text)
     dedup_hash = make_dedup_hash(price_value, location, property_type, text)
 
     return {
@@ -263,6 +280,7 @@ def parse_message(text):
         "size_text": size_text,
         "listing_kind": listing_kind,
         "contact": contact,
+        "source_maps_link": source_maps_link,
         "dedup_hash": dedup_hash,
     }
 

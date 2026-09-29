@@ -8,9 +8,10 @@ config.yaml -> google_sheets.service_account_file points at the JSON key
 file, and google_sheets.spreadsheet_id at the target sheet (which must
 be shared with the service account's email address as an Editor).
 
-Only listings that are visible, not hidden, and have a maps_link (i.e.
-their location was successfully geocoded) get pushed -- per your dad's
-"only wants properties with a Google Maps link" rule. Cross-posted
+Only listings that are visible, not hidden, and have a source_maps_link
+(a REAL Google Maps link the poster themselves included) get pushed --
+per your dad's "only wants properties with a Google Maps link" rule.
+Cross-posted
 duplicates (same extract.make_dedup_hash) are pushed once; later
 duplicates are marked synced without adding a second row.
 """
@@ -63,7 +64,7 @@ def row_for_listing(row):
         row["posted_by"] or "",
         row["source_name"] or "",
         posted,
-        row["maps_link"] or "",
+        row["source_maps_link"] or "",
     ]
 
 

@@ -197,6 +197,45 @@ into — the account must already be a member.
   still shows it, flagged "no map pin") — per your dad only wanting
   properties with a map link.
 
+## Sharing a live link
+
+The dashboard itself (`dashboard.py`) only runs on your machine, but you
+can publish a shareable, permanently-hosted snapshot for free via GitHub
+Pages -- no server to keep running, no cost:
+
+```
+python3 publish_static.py
+```
+
+This exports every map-qualified listing (same set as Sheets/Telegram/
+Earth) plus their photos into `docs/`, as a self-contained static site
+(no backend -- filtering happens in the browser via JavaScript over
+`docs/listings.json`). Commit and push `docs/` to publish an update:
+
+```
+git add docs/listings.json docs/photos
+git commit -m "Update published listings"
+git push
+```
+
+This repo is public on GitHub Pages at
+**https://sereyvidya.github.io/cambodia-listings-tracker/** (list view)
+and `/map.html` (clustered map view). Being public means the exact link
+isn't password-protected -- fine here since all the underlying data
+already comes from public Telegram channels -- but it also isn't
+indexed or listed anywhere. Nothing in `docs/` ever includes
+`config.yaml`, session files, or the Google service account key; those
+stay local (see `.gitignore`).
+
+This snapshot doesn't auto-update -- it reflects whatever `listings.db`
+looked like the last time you ran `publish_static.py` and pushed. A
+natural next step if that becomes annoying: move the database itself to
+a hosted backend (e.g. Supabase's free tier) so the site reads live
+data directly instead of a periodically-republished snapshot -- that's
+a real rewrite of `db.py` though, not a small change, and still
+wouldn't run `listener.py` for you (that's still a persistent process
+that needs a machine to run on).
+
 ## Where this could go next
 
 - **Real estate websites** (Realestate.com.kh, Khmer24, etc.): each

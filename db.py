@@ -37,10 +37,13 @@ CREATE TABLE IF NOT EXISTS listings (
     posted_by TEXT,                     -- who posted the message in the group
     photo_paths TEXT,                   -- JSON list of local file paths
     dedup_hash TEXT,
-    lat REAL,                           -- geocoded latitude, NULL until resolved
-    lon REAL,                           -- geocoded longitude, NULL until resolved
-    maps_link TEXT,                     -- Google Maps link once geocoded
+    lat REAL,                           -- latitude: precise if source_maps_link resolved, else our own neighborhood-level guess
+    lon REAL,                           -- longitude, same caveat
+    maps_link TEXT,                     -- generic coordinate-search Maps link built from lat/lon, once we have any
     geocoded_at TEXT,                   -- when a geocode attempt was made (success or not)
+    source_maps_link TEXT,              -- the REAL Google Maps link the poster themselves included, if any --
+                                         -- this (not maps_link) is what "has a map pin" means to Sheets/Telegram/Earth/the published site
+    source_map_resolved_at TEXT,        -- when we tried resolving source_maps_link to coordinates (success or fail)
     sheet_synced_at TEXT,               -- when this row was pushed to Google Sheets
     notified_at TEXT,                   -- when a Telegram notification was sent for this row
     hidden INTEGER NOT NULL DEFAULT 0,  -- lets the dashboard let a user hide junk
@@ -72,6 +75,8 @@ _MIGRATED_COLUMNS = {
     "geocoded_at": "TEXT",
     "sheet_synced_at": "TEXT",
     "notified_at": "TEXT",
+    "source_maps_link": "TEXT",
+    "source_map_resolved_at": "TEXT",
 }
 
 
@@ -105,12 +110,14 @@ def insert_listing(conn, listing: dict):
             source_type, source_name, message_id, message_link,
             posted_at, fetched_at, raw_text, price_value, price_currency,
             price_raw, location, property_type, bedrooms, size_text,
-            listing_kind, contact, posted_by, photo_paths, dedup_hash
+            listing_kind, contact, posted_by, photo_paths, dedup_hash,
+            source_maps_link
         ) VALUES (
             :source_type, :source_name, :message_id, :message_link,
             :posted_at, :fetched_at, :raw_text, :price_value, :price_currency,
             :price_raw, :location, :property_type, :bedrooms, :size_text,
-            :listing_kind, :contact, :posted_by, :photo_paths, :dedup_hash
+            :listing_kind, :contact, :posted_by, :photo_paths, :dedup_hash,
+            :source_maps_link
         )
         """,
         {**listing, "photo_paths": photo_paths},
@@ -127,6 +134,7 @@ def query_listings(
     source_name=None,
     search_text=None,
     has_map=None,
+    has_source_map=None,
     include_hidden=False,
     limit=500,
 ):
@@ -159,6 +167,10 @@ def query_listings(
         clauses.append("maps_link IS NOT NULL")
     elif has_map == "no":
         clauses.append("maps_link IS NULL")
+    if has_source_map == "yes":
+        clauses.append("source_maps_link IS NOT NULL")
+    elif has_source_map == "no":
+        clauses.append("source_maps_link IS NULL")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -215,6 +227,22 @@ def set_geocode_result(conn, listing_id, lat, lon, maps_link):
     )
 
 
+def listings_needing_source_map_resolve(conn):
+    """Visible listings with a real poster-provided map link we haven't
+    tried resolving to coordinates yet (see geocode.resolve_source_map_link)."""
+    return conn.execute(
+        """SELECT * FROM listings
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND source_map_resolved_at IS NULL"""
+    ).fetchall()
+
+
+def mark_source_map_resolved(conn, listing_id):
+    conn.execute(
+        "UPDATE listings SET source_map_resolved_at = ? WHERE id = ?",
+        (datetime.now(timezone.utc).isoformat(), listing_id),
+    )
+
+
 def find_synced_duplicate(conn, dedup_hash, exclude_id):
     """id of an already-Sheet-synced listing sharing this dedup_hash, if any --
     used to avoid pushing the same cross-posted unit into the sheet twice."""
@@ -226,11 +254,12 @@ def find_synced_duplicate(conn, dedup_hash, exclude_id):
 
 
 def listings_pending_sheet_sync(conn):
-    """Visible, geocoded (i.e. has a Google Maps link) listings not yet
-    pushed to the Sheet -- dad only wants listings with a map link."""
+    """Visible listings with a REAL poster-provided map link, not yet
+    pushed to the Sheet -- dad only wants listings the poster themselves
+    pinned a location for, not our own neighborhood-level guess."""
     return conn.execute(
         """SELECT * FROM listings
-           WHERE hidden = 0 AND maps_link IS NOT NULL AND sheet_synced_at IS NULL
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND sheet_synced_at IS NULL
            ORDER BY id"""
     ).fetchall()
 
@@ -243,10 +272,11 @@ def mark_sheet_synced(conn, listing_id):
 
 
 def listings_pending_notify(conn):
-    """Visible, geocoded listings not yet sent to the Telegram notify group."""
+    """Visible listings with a real poster-provided map link, not yet sent
+    to the Telegram notify group."""
     return conn.execute(
         """SELECT * FROM listings
-           WHERE hidden = 0 AND maps_link IS NOT NULL AND notified_at IS NULL
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND notified_at IS NULL
            ORDER BY id"""
     ).fetchall()
 
@@ -259,8 +289,14 @@ def mark_notified(conn, listing_id):
 
 
 def listings_for_earth_export(conn):
-    """All visible, geocoded listings -- the KMZ export is a full snapshot,
-    regenerated each run rather than tracked incrementally."""
+    """All visible listings with a real poster-provided map link that's
+    been resolved to coordinates -- the KMZ export is a full snapshot,
+    regenerated each run rather than tracked incrementally. (Requires
+    lat/lon too, not just source_maps_link, since sync.py resolves those
+    in a separate step -- a listing can briefly have one without the
+    other between runs.)"""
     return conn.execute(
-        "SELECT * FROM listings WHERE hidden = 0 AND maps_link IS NOT NULL ORDER BY id"
+        """SELECT * FROM listings
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND lat IS NOT NULL
+           ORDER BY id"""
     ).fetchall()

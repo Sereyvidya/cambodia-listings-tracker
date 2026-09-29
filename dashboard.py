@@ -35,6 +35,7 @@ def index():
             source_name=request.args.get("source_name") or None,
             search_text=request.args.get("q") or None,
             has_map=request.args.get("has_map") or None,
+            has_source_map=request.args.get("has_source_map") or None,
         )
         locations = db.distinct_values(conn, "location")
         property_types = db.distinct_values(conn, "property_type")
