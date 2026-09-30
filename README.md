@@ -55,8 +55,11 @@ bottom for when you outgrow that.
    texted/sent to that account, and possibly a 2FA password if one is
    set. After that it saves a local session file
    (`<session_name>.session`) so you won't be asked again on future runs.
-   This also does the first pull of recent history (controlled by
-   `settings.backfill_days` in `config.yaml`).
+   This also does the first pull of history for each group -- a longer
+   window the very first time a given channel is backfilled
+   (`settings.first_time_backfill_days`), then a shorter one on every
+   run after that (`settings.backfill_days`), tracked automatically per
+   channel so adding a new group later doesn't affect the others.
 
 ## Running it day to day
 

@@ -78,6 +78,15 @@ CREATE TABLE IF NOT EXISTS geocode_cache (
     lon REAL,
     resolved_at TEXT NOT NULL
 );
+
+-- One row per channel once its first backfill has completed, so
+-- listener.py knows to use the long first-time window only once per
+-- channel and the short ongoing window every run after that (see
+-- listener.py:backfill).
+CREATE TABLE IF NOT EXISTS backfilled_channels (
+    source_name TEXT PRIMARY KEY,
+    first_backfilled_at TEXT NOT NULL
+);
 """
 
 # Columns added after the table's first release. init_db() adds any that
@@ -247,6 +256,23 @@ def set_cached_geocode(conn, location, lat, lon):
     conn.execute(
         "INSERT OR REPLACE INTO geocode_cache (location, lat, lon, resolved_at) VALUES (?, ?, ?, ?)",
         (location, lat, lon, datetime.now(timezone.utc).isoformat()),
+    )
+
+
+def has_backfilled_before(conn, source_name):
+    return conn.execute(
+        "SELECT 1 FROM backfilled_channels WHERE source_name = ?", (source_name,)
+    ).fetchone() is not None
+
+
+def mark_backfilled(conn, source_name):
+    """Records that source_name's first backfill has completed. Called
+    after a channel's scan finishes (not before), so a run that dies
+    partway through still gets the full first-time window on retry
+    instead of being silently downgraded to the short ongoing one."""
+    conn.execute(
+        "INSERT OR IGNORE INTO backfilled_channels (source_name, first_backfilled_at) VALUES (?, ?)",
+        (source_name, datetime.now(timezone.utc).isoformat()),
     )
 
 

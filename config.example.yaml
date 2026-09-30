@@ -23,8 +23,14 @@ groups:
   - "example_phnompenh_condos_forsale"
 
 settings:
-  # How many days of history to pull the first time the listener runs
-  # against a group. Subsequent runs only fetch new messages.
+  # How far back to look each run. Applied per-channel and automatic:
+  # listener.py remembers (in listings.db) which channels have already
+  # had a first backfill, so a brand-new group you add later gets the
+  # full first_time_backfill_days just once, while every other group --
+  # and that same one on every later run -- only uses this shorter
+  # window. Safe either way: re-scanning messages you already have is a
+  # no-op (duplicates are prevented at insert time), just slower.
+  first_time_backfill_days: 180
   backfill_days: 14
   # Download photos attached to candidate listings? Uses more disk space
   # but makes the dashboard much more useful.

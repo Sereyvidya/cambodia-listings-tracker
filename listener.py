@@ -90,12 +90,17 @@ async def store_message(conn, cfg, group_label, message):
 
 
 async def backfill(client, cfg):
-    days = cfg["settings"].get("backfill_days", 14)
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    ongoing_days = cfg["settings"].get("backfill_days", 14)
+    first_time_days = cfg["settings"].get("first_time_backfill_days", ongoing_days)
 
     with db.get_conn() as conn:
         for group in cfg["groups"]:
-            print(f"Backfilling '{group}' (last {days} days)...")
+            seen_before = db.has_backfilled_before(conn, group)
+            days = ongoing_days if seen_before else first_time_days
+            since = datetime.now(timezone.utc) - timedelta(days=days)
+
+            label = "ongoing" if seen_before else "first-time"
+            print(f"Backfilling '{group}' (last {days} days, {label})...")
             entity = await client.get_entity(group)
             kept = 0
             seen = 0
@@ -107,6 +112,7 @@ async def backfill(client, cfg):
                     if await store_message(conn, cfg, group, message):
                         kept += 1
             print(f"  scanned {seen} messages, kept {kept} as listing candidates")
+            db.mark_backfilled(conn, group)
 
 
 async def listen(client, cfg):
