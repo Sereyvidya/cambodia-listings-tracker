@@ -83,9 +83,12 @@ def map_view():
         property_types = db.distinct_values(conn, "property_type")
         sources = db.distinct_values(conn, "source_name")
 
+        pin_tier_filter = request.args.get("pin_tier") or None
         rows = []
         for row in listings:
             tier, link = db.pin_info(row)
+            if pin_tier_filter and tier != pin_tier_filter:
+                continue
             d = dict(row)
             d["photo_paths"] = json.loads(d["photo_paths"] or "[]")
             d["maps_link"] = link

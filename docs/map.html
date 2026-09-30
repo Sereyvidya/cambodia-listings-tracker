@@ -71,6 +71,12 @@
 
   <select id="source_name"><option value="">Any source group</option></select>
 
+  <select id="pin_tier">
+    <option value="">Both pin types</option>
+    <option value="real_link">Real map link only</option>
+    <option value="sangkat_khan">Sangkat + khan only</option>
+  </select>
+
   <input type="text" id="q" placeholder="Search text...">
   <button type="submit">Filter</button>
   <a href="#" id="clear" style="align-self:center; font-size:0.85rem; color:var(--muted);">Clear</a>
@@ -109,6 +115,7 @@
     const ptype = document.getElementById("property_type").value;
     const kind = document.getElementById("listing_kind").value;
     const src = document.getElementById("source_name").value;
+    const tier = document.getElementById("pin_tier").value;
     const q = document.getElementById("q").value.trim().toLowerCase();
 
     const filtered = listings.filter(l => {
@@ -118,6 +125,7 @@
       if (ptype && l.property_type !== ptype) return false;
       if (kind && l.listing_kind !== kind) return false;
       if (src && l.source_name !== src) return false;
+      if (tier && l.pin_tier !== tier) return false;
       if (q && !(l.raw_text || "").toLowerCase().includes(q)) return false;
       return true;
     });

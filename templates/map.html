@@ -87,6 +87,12 @@
     {% endfor %}
   </select>
 
+  <select name="pin_tier">
+    <option value="">Both pin types</option>
+    <option value="real_link" {{ 'selected' if filters.get('pin_tier') == 'real_link' }}>Real map link only</option>
+    <option value="sangkat_khan" {{ 'selected' if filters.get('pin_tier') == 'sangkat_khan' }}>Sangkat + khan only</option>
+  </select>
+
   <input type="text" name="q" placeholder="Search text..." value="{{ filters.get('q', '') }}">
   <button type="submit">Filter</button>
   <a href="{{ url_for('map_view') }}" style="align-self:center; font-size:0.85rem; color:var(--muted);">Clear</a>
