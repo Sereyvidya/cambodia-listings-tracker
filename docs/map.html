@@ -39,7 +39,10 @@
   .popup-tags { font-size: 0.72rem; color: var(--muted); margin: 2px 0 6px; }
   .popup-text { font-size: 0.8rem; max-height: 4.5em; overflow: hidden; margin-bottom: 6px; }
   .popup-links a { color: var(--accent); margin-right: 8px; font-size: 0.8rem; }
+  .popup-precision { font-size: 0.7rem; color: #2b6cb0; margin-bottom: 4px; }
   .leaflet-popup-content { margin: 10px; }
+  .legend { display: flex; gap: 14px; align-items: center; font-size: 0.78rem; color: var(--muted); }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 5px; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -47,6 +50,10 @@
 <header>
   <h1>Cambodia Listings Tracker — Map</h1>
   <div class="sub"><span id="count"></span> &middot; <a href="index.html">view as list</a></div>
+  <div class="legend" style="margin-top:6px;">
+    <span><span class="dot" style="background:#2f6f4f;"></span>real map link (exact)</span>
+    <span><span class="dot" style="background:#2b6cb0;"></span>sangkat + khan (approximate)</span>
+  </div>
 </header>
 
 <form class="filters" id="filters">
@@ -129,12 +136,19 @@
         : "";
       const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">map</a>` : "";
       const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
+      const precise = l.pin_tier === "real_link";
+      const precisionNote = precise ? "" : '<div class="popup-precision">approximate &middot; sangkat-level</div>';
 
-      const marker = L.marker([l.lat, l.lon]);
+      const marker = L.circleMarker([l.lat, l.lon], {
+        radius: 9, weight: 2, color: "#fff",
+        fillColor: precise ? "#2f6f4f" : "#2b6cb0",
+        fillOpacity: 0.95,
+      });
       marker.bindPopup(`
         <div class="popup-card">
           ${photo}
           <div class="popup-price">${esc(price)}</div>
+          ${precisionNote}
           <div class="popup-tags">${esc(tags)}</div>
           <div class="popup-text">${esc((l.raw_text || "").slice(0, 140))}</div>
           <div class="popup-links">${mapLink}${openLink}</div>

@@ -188,14 +188,22 @@ into — the account must already be a member.
 - **No scheduling / not always-on.** `listener.py listen` only collects
   while it's actively running on a machine that's on. Same for
   `sync.py` — it publishes whatever's new at the moment you run it.
-- **Geocoding is neighborhood-level, not exact addresses.** `location`
-  is one of the coarse areas in `extract.LOCATIONS` (e.g. "BKK1"), so
-  the Maps pin lands at that neighborhood's center, not the actual
-  building — good enough to orient someone, not turn-by-turn precise.
-  A listing whose location extract.py couldn't identify at all gets no
-  pin, and is left out of the Sheet/Telegram/Earth publishing (dashboard
-  still shows it, flagged "no map pin") — per your dad only wanting
-  properties with a map link.
+- **A listing gets a pin one of two ways** (see `db._PUBLISH_GATE_SQL`
+  and `db.pin_info`), and the map/Sheet/Telegram distinguish which:
+  - **A real link the poster included** (`extract_map_link` finds an
+    actual `maps.app.goo.gl`/`google.com/maps` URL in the post) —
+    precise, wherever they dropped the pin. Shown in green.
+  - **Both a sangkat (commune) and khan (district) named in the post**
+    (e.g. "សង្កាត់គោករកា ខណ្ឌព្រែកព្នៅ") — per your dad, a sangkat is
+    precise enough to trust even with no map link, but a khan alone
+    isn't. Geocoded to that sangkat's centroid, shown in blue, and
+    every output notes it's approximate. A khan mentioned without a
+    sangkat, or a sangkat without a khan, doesn't qualify.
+  - Anything else gets no pin and is left out of the Sheet/Telegram/
+    Earth/published-site publishing (the local dashboard still shows
+    it, flagged "no map pin", filterable via "Publishable pin").
+  - Either way, geocoding is at most sangkat-level, not the actual
+    building — good enough to orient someone, not turn-by-turn precise.
 
 ## Sharing a live link
 

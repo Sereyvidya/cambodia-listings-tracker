@@ -1,9 +1,11 @@
 """
-Exports a Google Earth-ready .kmz snapshot of every visible listing that
-has a REAL, poster-provided Google Maps link (i.e. the same set that
-goes to the Sheet -- see db.listings_for_earth_export). Each pin embeds
-the listing's first photo (if one was downloaded) and its full text in
-the popup, at the precise coordinates resolved from that link.
+Exports a Google Earth-ready .kmz snapshot of every visible, qualifying
+listing (see db.listings_for_earth_export / db._PUBLISH_GATE_SQL). Each
+pin embeds the listing's first photo (if one was downloaded) and its
+full text in the popup. Pins are colored by precision (see db.pin_info):
+green for a real poster-provided link, blue for a sangkat+khan guess --
+the latter is only accurate to "somewhere in this sangkat", not the
+actual building.
 
 Open the resulting file in Google Earth Pro (double-click it) or upload
 it via earth.google.com -> Projects -> Import KML file.
@@ -25,6 +27,12 @@ import db
 PHOTOS_DIR = Path(__file__).parent / "photos"
 DEFAULT_OUTPUT = Path(__file__).parent / "cambodia_listings.kmz"
 
+# Google's standard KML paddle icons -- reliable, no hosting of our own.
+ICON_BY_TIER = {
+    "real_link": "http://maps.google.com/mapfiles/kml/paddle/grn-blank.png",
+    "sangkat_khan": "http://maps.google.com/mapfiles/kml/paddle/blu-blank.png",
+}
+
 
 def build_description(row):
     parts = []
@@ -44,8 +52,10 @@ def build_description(row):
     if row["posted_by"]:
         lines.append(f"Posted by: {row['posted_by']}")
     lines.append(f"Source: {row['source_name']} ({(row['posted_at'] or row['fetched_at'])[:10]})")
-    if row["source_maps_link"]:
-        lines.append(f'<a href="{row["source_maps_link"]}">Open in Google Maps</a>')
+    tier, link = db.pin_info(row)
+    if link:
+        label = "Open in Google Maps" if tier == "real_link" else "Open in Google Maps (approximate, sangkat-level)"
+        lines.append(f'<a href="{link}">{label}</a>')
     return "<br/>".join(l for l in lines if l)
 
 
@@ -55,6 +65,8 @@ def export_kmz(conn, output_path=DEFAULT_OUTPUT):
     for row in rows:
         name = f"${row['price_value']:,.0f}" if row["price_value"] else (row["location"] or "Listing")
         pnt = kml.newpoint(name=name, coords=[(row["lon"], row["lat"])])
+        tier, _ = db.pin_info(row)
+        pnt.style.iconstyle.icon.href = ICON_BY_TIER.get(tier, ICON_BY_TIER["real_link"])
         desc_html = build_description(row)
 
         photo_paths = json.loads(row["photo_paths"] or "[]")

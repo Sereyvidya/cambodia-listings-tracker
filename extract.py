@@ -21,49 +21,23 @@ import hashlib
 # Update this occasionally -- it does NOT update itself.
 KHR_PER_USD = 4100
 
-# Common Phnom Penh + provincial areas, keyed by the substring to look
-# for in the message -> the canonical name used for display and
-# geocoding. Matched case-insensitively (case doesn't apply to Khmer
-# script, so lowering is a harmless no-op there).
-#
-# Real Cambodian listings are very often written entirely in Khmer
-# script, with the district (khan) / commune (sangkat) name rather than
-# an English neighborhood name -- e.g. "ខ័ណ្ឌសែនសុខ" (Sen Sok) instead of
-# "Sen Sok". Add more Khmer entries here as you see them come through;
-# this set covers what showed up in the first real backfill.
-LOCATIONS = {
-    "bkk1": "BKK1", "bkk2": "BKK2", "bkk3": "BKK3", "boeung keng kang": "BKK1",
-    "toul kork": "Toul Kork", "tuol kork": "Toul Kork",
-    "toul tom poung": "Toul Tom Poung", "tuol tom poung": "Toul Tom Poung",
-    "russian market": "Toul Tom Poung",
-    "chamkarmon": "Chamkarmon", "chamkar mon": "Chamkarmon", "daun penh": "Daun Penh",
+# Phnom Penh's khans (districts) -- the coarser administrative unit.
+# Keyed by the substring to look for in the message (Khmer or English) ->
+# the canonical name used for display and geocoding. Matched case-
+# insensitively (case doesn't apply to Khmer script, so lowering is a
+# harmless no-op there).
+KHANS = {
+    "chamkarmon": "Chamkarmon", "chamkar mon": "Chamkarmon",
+    "daun penh": "Daun Penh",
     "sen sok": "Sen Sok", "sensok": "Sen Sok",
     "chroy changvar": "Chroy Changvar", "chroy changva": "Chroy Changvar",
-    "tonle bassac": "Tonle Bassac", "chbar ampov": "Chbar Ampov",
+    "chbar ampov": "Chbar Ampov",
     "mean chey": "Mean Chey", "por sen chey": "Por Sen Chey", "pou senchey": "Por Sen Chey",
     "prek pnov": "Prek Pnov", "dangkao": "Dangkao",
-    "riverside": "Riverside, Phnom Penh",
-    "diamond island": "Koh Pich, Phnom Penh", "koh pich": "Koh Pich, Phnom Penh",
-    "olympic": "Olympic Stadium, Phnom Penh",
-    "siem reap": "Siem Reap", "sihanoukville": "Sihanoukville", "preah sihanouk": "Sihanoukville",
-    "battambang": "Battambang", "kampot": "Kampot", "kep": "Kep",
-    "kampong cham": "Kampong Cham", "kampong speu": "Kampong Speu", "kandal": "Kandal",
-    "phnom penh": "Phnom Penh",
-    # Khmer district (khan) / commune (sangkat) names. Canonical values
-    # match the plain style of the English entries above (no ", Phnom
-    # Penh" suffix) -- geocode.py already appends a Cambodia region hint,
-    # and keeping the same canonical string regardless of which script
-    # matched avoids two entries for the same place in the dashboard's
-    # location dropdown, and keeps cross-post dedup working when the same
-    # unit gets posted once in Khmer and once in English.
+    "toul kork": "Toul Kork", "tuol kork": "Toul Kork",
     "សែនសុខ": "Sen Sok",
     "ព្រែកព្នៅ": "Prek Pnov",
-    "ឫស្សីកែវ": "Russey Keo",
-    "គោករកា": "Kouk Roka",
-    "ភ្នំពេញថ្មី": "Phnom Penh Thmei",
-    "ឃ្មួញ": "Khmuonh",
-    "ក្រាំងធ្នង់": "Krang Thnong",
-    "ទួលសង្កែ": "Tuol Sangke",
+    "ឫស្សីកែវ": "Russey Keo", "ឬស្សីកែវ": "Russey Keo",  # both spellings seen in the wild
     "ដូនពេញ": "Daun Penh",
     "ទួលគោក": "Toul Kork",
     "ចំការមន": "Chamkarmon",
@@ -71,11 +45,41 @@ LOCATIONS = {
     "ចោមចៅ": "Por Sen Chey",
     "ដង្កោ": "Dangkao",
     "ជ្រោយចង្វារ": "Chroy Changvar",
-    "ឬស្សីកែវ": "Russey Keo",  # alt. spelling of ឫស្សីកែវ above (real posts use both)
     "ច្បារអំពៅ": "Chbar Ampov",
+    "៧មករា": "7 Makara",
+}
+
+# Sangkats (communes) -- one administrative level more precise than a
+# khan. When a post names both its sangkat and its khan (the very common
+# "សង្កាត់<sangkat> ខណ្ឌ<khan>" pattern), the sangkat alone is precise
+# enough to geocode confidently even with no Google Maps link at all --
+# see sync.py's qualifies-for-a-pin gate.
+SANGKATS = {
+    "bkk1": "BKK1", "bkk2": "BKK2", "bkk3": "BKK3", "boeung keng kang": "BKK1",
+    "toul tom poung": "Toul Tom Poung", "tuol tom poung": "Toul Tom Poung",
+    "russian market": "Toul Tom Poung",
+    "tonle bassac": "Tonle Bassac",
+    "គោករកា": "Kouk Roka",
+    "ភ្នំពេញថ្មី": "Phnom Penh Thmei",
+    "ឃ្មួញ": "Khmuonh",
+    "ក្រាំងធ្នង់": "Krang Thnong",
+    "ទួលសង្កែ": "Tuol Sangke",
+    "ច្រាំងចំរេះ": "Chrang Chamres",
     "បឹងកេងកង": "BKK1",  # Khmer original of the "BKK" abbreviation
-    "ច្រាំងចំរេះ": "Chrang Chamres, Phnom Penh",
-    "៧មករា": "7 Makara, Phnom Penh",
+}
+
+# Informal/colloquial area names and provincial towns -- not part of the
+# khan/sangkat pairing above (either not a strict administrative unit, or
+# a whole town/province rather than a Phnom Penh sangkat), but still
+# useful for general display/filtering in extract_location().
+OTHER_AREAS = {
+    "riverside": "Riverside, Phnom Penh",
+    "diamond island": "Koh Pich, Phnom Penh", "koh pich": "Koh Pich, Phnom Penh",
+    "olympic": "Olympic Stadium, Phnom Penh",
+    "siem reap": "Siem Reap", "sihanoukville": "Sihanoukville", "preah sihanouk": "Sihanoukville",
+    "battambang": "Battambang", "kampot": "Kampot", "kep": "Kep",
+    "kampong cham": "Kampong Cham", "kampong speu": "Kampong Speu", "kandal": "Kandal",
+    "phnom penh": "Phnom Penh",
     "តាខ្មៅ": "Ta Khmau, Kandal",
 }
 
@@ -174,9 +178,36 @@ def extract_price(text):
     return None, None, None
 
 
-def extract_location(text):
+def extract_khan(text):
     lower = text.lower()
-    for needle, canonical in LOCATIONS.items():
+    for needle, canonical in KHANS.items():
+        if needle in lower:
+            return canonical
+    return None
+
+
+def extract_sangkat(text):
+    lower = text.lower()
+    for needle, canonical in SANGKATS.items():
+        if needle in lower:
+            return canonical
+    return None
+
+
+def extract_location(text):
+    """General-purpose display location for the dashboard/filters: the
+    sangkat if we found one (more precise), else the khan, else an
+    informal area/provincial name. See extract_khan/extract_sangkat for
+    the two separately-tracked fields the map-pin gate actually cares
+    about (see sync.py)."""
+    sangkat = extract_sangkat(text)
+    if sangkat:
+        return sangkat
+    khan = extract_khan(text)
+    if khan:
+        return khan
+    lower = text.lower()
+    for needle, canonical in OTHER_AREAS.items():
         if needle in lower:
             return canonical
     return None
@@ -272,6 +303,8 @@ def parse_message(text):
     aren't really listings -- the caller decides whether to keep it
     (see listener.py's should_keep filter)."""
     price_value, price_currency, price_raw = extract_price(text)
+    khan = extract_khan(text)
+    sangkat = extract_sangkat(text)
     location = extract_location(text)
     property_type = extract_property_type(text)
     bedrooms = extract_bedrooms(text)
@@ -286,6 +319,8 @@ def parse_message(text):
         "price_currency": price_currency,
         "price_raw": price_raw,
         "location": location,
+        "khan": khan,
+        "sangkat": sangkat,
         "property_type": property_type,
         "bedrooms": bedrooms,
         "size_text": size_text,

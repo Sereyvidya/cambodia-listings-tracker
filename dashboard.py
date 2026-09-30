@@ -36,14 +36,21 @@ def index():
             search_text=request.args.get("q") or None,
             has_map=request.args.get("has_map") or None,
             has_source_map=request.args.get("has_source_map") or None,
+            has_pin=request.args.get("has_pin") or None,
         )
         locations = db.distinct_values(conn, "location")
         property_types = db.distinct_values(conn, "property_type")
         sources = db.distinct_values(conn, "source_name")
 
-    listings = [dict(row) for row in listings]
-    for l in listings:
-        l["photo_paths"] = json.loads(l["photo_paths"] or "[]")
+        rows = list(listings)
+        listings = []
+        for row in rows:
+            tier, link = db.pin_info(row)
+            l = dict(row)
+            l["photo_paths"] = json.loads(l["photo_paths"] or "[]")
+            l["pin_tier"] = tier
+            l["pin_link"] = link
+            listings.append(l)
 
     return render_template(
         "index.html",
@@ -69,25 +76,30 @@ def map_view():
             listing_kind=request.args.get("listing_kind") or None,
             source_name=request.args.get("source_name") or None,
             search_text=request.args.get("q") or None,
-            has_map="yes",  # only geocoded listings have coordinates to plot
+            has_pin="yes",  # only listings that would actually be published get a pin here
             limit=2000,
         )
         locations = db.distinct_values(conn, "location")
         property_types = db.distinct_values(conn, "property_type")
         sources = db.distinct_values(conn, "source_name")
 
-    listings = [dict(row) for row in listings]
-    for l in listings:
-        l["photo_paths"] = json.loads(l["photo_paths"] or "[]")
+        rows = []
+        for row in listings:
+            tier, link = db.pin_info(row)
+            d = dict(row)
+            d["photo_paths"] = json.loads(d["photo_paths"] or "[]")
+            d["maps_link"] = link
+            d["pin_tier"] = tier
+            rows.append(d)
 
     return render_template(
         "map.html",
-        listings=listings,
+        listings=rows,
         locations=locations,
         property_types=property_types,
         sources=sources,
         filters=request.args,
-        count=len(listings),
+        count=len(rows),
     )
 
 

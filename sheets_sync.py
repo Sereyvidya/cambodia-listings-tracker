@@ -8,12 +8,12 @@ config.yaml -> google_sheets.service_account_file points at the JSON key
 file, and google_sheets.spreadsheet_id at the target sheet (which must
 be shared with the service account's email address as an Editor).
 
-Only listings that are visible, not hidden, and have a source_maps_link
-(a REAL Google Maps link the poster themselves included) get pushed --
-per your dad's "only wants properties with a Google Maps link" rule.
-Cross-posted
-duplicates (same extract.make_dedup_hash) are pushed once; later
-duplicates are marked synced without adding a second row.
+Only qualifying listings get pushed (see db._PUBLISH_GATE_SQL): either a
+REAL Google Maps link the poster themselves included, or -- per your
+dad -- a post naming both its sangkat and khan, which is precise enough
+to trust even with no map link at all. Cross-posted duplicates (same
+extract.make_dedup_hash) are pushed once; later duplicates are marked
+synced without adding a second row.
 """
 
 from pathlib import Path
@@ -28,7 +28,7 @@ SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 HEADERS = [
     "Description", "Price (USD)", "Size", "Location", "Type", "Sale/Rent",
     "Bedrooms", "Contact", "Posted By", "Source", "Posted/Fetched",
-    "Google Maps Link",
+    "Google Maps Link", "Pin Precision",
 ]
 
 
@@ -52,6 +52,8 @@ def ensure_header(ws):
 
 def row_for_listing(row):
     posted = (row["posted_at"] or row["fetched_at"] or "")[:16].replace("T", " ")
+    tier, link = db.pin_info(row)
+    precision = "Exact (from post)" if tier == "real_link" else "Approximate (sangkat-level)"
     return [
         row["raw_text"] or "",
         f"{row['price_value']:,.0f}" if row["price_value"] else "",
@@ -64,7 +66,8 @@ def row_for_listing(row):
         row["posted_by"] or "",
         row["source_name"] or "",
         posted,
-        row["source_maps_link"] or "",
+        link or "",
+        precision,
     ]
 
 

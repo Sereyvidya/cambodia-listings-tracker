@@ -15,6 +15,19 @@ from contextlib import contextmanager
 
 DB_PATH = Path(__file__).parent / "listings.db"
 
+# A listing is worth a pin in Sheets/Telegram/Earth/the published site
+# when EITHER of these holds:
+#  - the poster included a real Google Maps link, and it isn't a
+#    duplicate/reused-reference-point (see compute_duplicate_link_exclusions), or
+#  - the post named BOTH its sangkat (commune) and khan (district) --
+#    per your dad, a sangkat is precise enough to trust even with no
+#    map link at all, but a khan alone is too coarse.
+# Both branches need lat/lon already resolved to actually place a pin.
+_PUBLISH_GATE_SQL = """(
+    (source_maps_link IS NOT NULL AND is_duplicate_link = 0)
+    OR (khan IS NOT NULL AND sangkat IS NOT NULL)
+) AND lat IS NOT NULL"""
+
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS listings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,7 +41,9 @@ CREATE TABLE IF NOT EXISTS listings (
     price_value REAL,                   -- normalized to USD where possible
     price_currency TEXT,                -- 'USD', 'KHR', or NULL if unparsed
     price_raw TEXT,                     -- the substring we parsed it from
-    location TEXT,
+    location TEXT,                      -- general display value: sangkat if known, else khan, else an informal area name
+    khan TEXT,                          -- district, coarser than a sangkat
+    sangkat TEXT,                       -- commune -- precise enough to pin even with no real map link, if paired with a khan
     property_type TEXT,                 -- apartment/condo/villa/land/house/room/office/other
     bedrooms INTEGER,
     size_text TEXT,                     -- normalized floor/plot size, e.g. '85 sqm' or '5x20m'
@@ -79,6 +94,8 @@ _MIGRATED_COLUMNS = {
     "source_maps_link": "TEXT",
     "source_map_resolved_at": "TEXT",
     "is_duplicate_link": "INTEGER NOT NULL DEFAULT 0",
+    "khan": "TEXT",
+    "sangkat": "TEXT",
 }
 
 
@@ -111,13 +128,13 @@ def insert_listing(conn, listing: dict):
         INSERT OR IGNORE INTO listings (
             source_type, source_name, message_id, message_link,
             posted_at, fetched_at, raw_text, price_value, price_currency,
-            price_raw, location, property_type, bedrooms, size_text,
+            price_raw, location, khan, sangkat, property_type, bedrooms, size_text,
             listing_kind, contact, posted_by, photo_paths, dedup_hash,
             source_maps_link
         ) VALUES (
             :source_type, :source_name, :message_id, :message_link,
             :posted_at, :fetched_at, :raw_text, :price_value, :price_currency,
-            :price_raw, :location, :property_type, :bedrooms, :size_text,
+            :price_raw, :location, :khan, :sangkat, :property_type, :bedrooms, :size_text,
             :listing_kind, :contact, :posted_by, :photo_paths, :dedup_hash,
             :source_maps_link
         )
@@ -137,6 +154,7 @@ def query_listings(
     search_text=None,
     has_map=None,
     has_source_map=None,
+    has_pin=None,
     include_hidden=False,
     limit=500,
 ):
@@ -173,6 +191,10 @@ def query_listings(
         clauses.append("source_maps_link IS NOT NULL AND is_duplicate_link = 0")
     elif has_source_map == "no":
         clauses.append("(source_maps_link IS NULL OR is_duplicate_link = 1)")
+    if has_pin == "yes":
+        clauses.append(_PUBLISH_GATE_SQL)
+    elif has_pin == "no":
+        clauses.append(f"NOT ({_PUBLISH_GATE_SQL})")
 
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     sql = f"""
@@ -183,6 +205,22 @@ def query_listings(
     """
     params["limit"] = limit
     return conn.execute(sql, params).fetchall()
+
+
+def pin_info(row):
+    """Given a listings row (qualifying per _PUBLISH_GATE_SQL or not),
+    returns (tier, display_link):
+      - "real_link": the poster's own Google Maps link -- precise.
+      - "sangkat_khan": no real link, but the post named both its sangkat
+        and khan, geocoded from that -- approximate at the sangkat level.
+      - None: doesn't qualify for a pin at all.
+    display_link is whichever link is appropriate to show for that tier
+    (None for the non-qualifying case)."""
+    if row["source_maps_link"] and not row["is_duplicate_link"] and row["lat"] is not None:
+        return "real_link", row["source_maps_link"]
+    if row["khan"] and row["sangkat"] and row["lat"] is not None:
+        return "sangkat_khan", row["maps_link"]
+    return None, None
 
 
 def distinct_values(conn, column):
@@ -312,15 +350,11 @@ def find_synced_duplicate(conn, dedup_hash, exclude_id):
 
 
 def listings_pending_sheet_sync(conn):
-    """Visible listings with a REAL, non-duplicate poster-provided map
-    link, not yet pushed to the Sheet -- dad only wants listings the
-    poster themselves pinned a location for, not our own neighborhood-
-    level guess (and not a link that's actually shared with other,
-    different listings -- see compute_duplicate_link_exclusions)."""
+    """Visible, qualifying listings (see _PUBLISH_GATE_SQL) not yet pushed
+    to the Sheet."""
     return conn.execute(
-        """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND is_duplicate_link = 0
-                 AND sheet_synced_at IS NULL
+        f"""SELECT * FROM listings
+           WHERE hidden = 0 AND {_PUBLISH_GATE_SQL} AND sheet_synced_at IS NULL
            ORDER BY id"""
     ).fetchall()
 
@@ -333,12 +367,11 @@ def mark_sheet_synced(conn, listing_id):
 
 
 def listings_pending_notify(conn):
-    """Visible listings with a real, non-duplicate poster-provided map
-    link, not yet sent to the Telegram notify group."""
+    """Visible, qualifying listings (see _PUBLISH_GATE_SQL) not yet sent
+    to the Telegram notify group."""
     return conn.execute(
-        """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND is_duplicate_link = 0
-                 AND notified_at IS NULL
+        f"""SELECT * FROM listings
+           WHERE hidden = 0 AND {_PUBLISH_GATE_SQL} AND notified_at IS NULL
            ORDER BY id"""
     ).fetchall()
 
@@ -351,15 +384,9 @@ def mark_notified(conn, listing_id):
 
 
 def listings_for_earth_export(conn):
-    """All visible listings with a real poster-provided map link that's
-    been resolved to coordinates -- the KMZ export is a full snapshot,
-    regenerated each run rather than tracked incrementally. (Requires
-    lat/lon too, not just source_maps_link, since sync.py resolves those
-    in a separate step -- a listing can briefly have one without the
-    other between runs.)"""
+    """All visible, qualifying listings (see _PUBLISH_GATE_SQL) -- the
+    KMZ export is a full snapshot, regenerated each run rather than
+    tracked incrementally."""
     return conn.execute(
-        """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND is_duplicate_link = 0
-                 AND lat IS NOT NULL
-           ORDER BY id"""
+        f"SELECT * FROM listings WHERE hidden = 0 AND {_PUBLISH_GATE_SQL} ORDER BY id"
     ).fetchall()

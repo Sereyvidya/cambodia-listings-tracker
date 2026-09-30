@@ -135,10 +135,12 @@ function render() {
       : '<span style="color:var(--muted); font-weight:400;">price not detected</span>';
     const tags = [l.listing_kind, l.property_type, l.location, l.bedrooms ? `${l.bedrooms} bed` : null, l.size_text]
       .filter(Boolean).map(t => `<span class="tag">${esc(String(t))}</span>`).join("");
+    const precise = l.pin_tier === "real_link";
+    const precisionTag = `<span class="tag" style="background:${precise ? '#eaf5ee' : '#e8f0fb'};color:${precise ? '#1e7e3c' : '#2b6cb0'};border-color:${precise ? '#c9e8d3' : '#cddef5'};">${precise ? '&#10003; real map link' : '~ sangkat + khan'}</span>`;
     const img = (l.photo_paths && l.photo_paths.length)
       ? `<img src="photos/${esc(l.photo_paths[0])}" alt="">` : "";
     const date = (l.posted_at || l.fetched_at || "").slice(0, 10);
-    const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">map</a> &middot; ` : "";
+    const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">${precise ? "map" : "approx. map"}</a> &middot; ` : "";
     const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
 
     const card = document.createElement("div");
@@ -147,7 +149,7 @@ function render() {
       ${img}
       <div class="card-body">
         <div class="price">${price}</div>
-        <div class="tags">${tags}</div>
+        <div class="tags">${tags}${precisionTag}</div>
         <div class="text">${esc(l.raw_text || "")}</div>
         <div class="meta">
           <span>${esc(l.source_name || "")} &middot; ${esc(date)}${l.posted_by ? " &middot; " + esc(l.posted_by) : ""}</span>
