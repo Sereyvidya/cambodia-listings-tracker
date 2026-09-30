@@ -3,63 +3,130 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
 <title>Cambodia Listings Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f7f6f3; --card: #ffffff; --ink: #1f2320; --muted: #6b7268;
-    --line: #e3e1da; --accent: #2f6f4f;
+    --bg: #f6f7f9; --bg-soft: #eef0f3; --card: #ffffff; --ink: #14181d; --ink-soft: #4a5259;
+    --muted: #868f99; --line: #e6e8ec; --line-soft: #f0f1f4;
+    --accent: #1d6f52; --accent-ink: #ffffff; --accent-soft: #e6f3ec; --accent-soft-line: #cfe6da;
+    --blue: #2f5fa8; --blue-soft: #e9f0fb; --blue-soft-line: #cfe0f5;
+    --radius-sm: 8px; --radius-md: 14px; --radius-lg: 18px;
+    --shadow-sm: 0 1px 2px rgba(20,24,29,0.05), 0 1px 1px rgba(20,24,29,0.03);
+    --shadow-md: 0 8px 24px -8px rgba(20,24,29,0.16), 0 2px 6px rgba(20,24,29,0.06);
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #101215; --bg-soft: #16191d; --card: #191c20; --ink: #eef1f4; --ink-soft: #c4cbd2;
+      --muted: #8b939c; --line: #2a2e34; --line-soft: #22252a;
+      --accent: #3fae82; --accent-ink: #0b1210; --accent-soft: #163229; --accent-soft-line: #24493c;
+      --blue: #7aa6e8; --blue-soft: #16233a; --blue-soft-line: #24395c;
+      --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
+      --shadow-md: 0 8px 24px -8px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3);
+    }
   }
   * { box-sizing: border-box; }
   body {
-    margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background: var(--bg); color: var(--ink);
+    margin: 0; font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased;
   }
   header {
-    padding: 20px 24px; border-bottom: 1px solid var(--line); background: var(--card);
-    position: sticky; top: 0; z-index: 5;
+    padding: 18px 28px; border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--card) 85%, transparent);
+    backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+    position: sticky; top: 0; z-index: 10;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
   }
-  h1 { margin: 0 0 4px; font-size: 1.3rem; }
-  .sub { color: var(--muted); font-size: 0.85rem; }
-  .sub a { color: var(--accent); }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 9px; flex: none;
+    background: linear-gradient(145deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #000 15%));
+    box-shadow: var(--shadow-sm);
+  }
+  h1 { margin: 0; font-size: 1.15rem; font-weight: 700; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 0.82rem; margin-left: auto; display: flex; align-items: center; gap: 6px; }
+  .sub a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .sub a:hover { text-decoration: underline; }
+
   form.filters {
-    display: flex; flex-wrap: wrap; gap: 10px; padding: 14px 24px;
-    background: var(--card); border-bottom: 1px solid var(--line);
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+    padding: 14px 28px; background: var(--bg-soft); border-bottom: 1px solid var(--line);
   }
   form.filters input, form.filters select {
-    padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px;
-    font-size: 0.9rem; background: white;
+    padding: 8px 12px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+    font-size: 0.84rem; background: var(--card); color: var(--ink);
+    font-family: inherit; transition: border-color .15s, box-shadow .15s;
   }
-  form.filters input[type="number"] { width: 100px; }
+  form.filters input:focus, form.filters select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+  }
+  form.filters input[type="number"] { width: 92px; }
+  form.filters input[type="text"] { width: 180px; }
   form.filters button {
-    padding: 7px 16px; border: none; border-radius: 6px; background: var(--accent);
-    color: white; font-size: 0.9rem; cursor: pointer;
+    padding: 8px 18px; border: none; border-radius: var(--radius-sm); background: var(--accent);
+    color: var(--accent-ink); font-size: 0.84rem; font-weight: 600; cursor: pointer;
+    box-shadow: var(--shadow-sm); transition: transform .12s, box-shadow .12s, filter .12s;
   }
+  form.filters button:hover { filter: brightness(1.08); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  form.filters a.clear-link { align-self: center; font-size: 0.8rem; color: var(--muted); text-decoration: none; font-weight: 500; }
+  form.filters a.clear-link:hover { color: var(--ink); text-decoration: underline; }
+
   .grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-    gap: 16px; padding: 20px 24px;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+    gap: 18px; padding: 24px 28px;
   }
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-    overflow: hidden; display: flex; flex-direction: column;
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius-lg);
+    overflow: hidden; display: flex; flex-direction: column; box-shadow: var(--shadow-sm);
+    transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
   }
-  .card img { width: 100%; height: 160px; object-fit: cover; background: #eee; }
-  .card-body { padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; flex: 1; }
-  .price { font-size: 1.15rem; font-weight: 600; }
+  .card:hover { transform: translateY(-3px); box-shadow: var(--shadow-md); border-color: color-mix(in srgb, var(--accent) 30%, var(--line)); }
+  .card .img-wrap { overflow: hidden; background: var(--bg-soft); }
+  .card img { width: 100%; height: 168px; object-fit: cover; display: block; transition: transform .35s ease; }
+  .card:hover img { transform: scale(1.05); }
+  .card-body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+  .price { font-size: 1.2rem; font-weight: 800; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+  .price .note { font-weight: 500; color: var(--muted); font-size: 0.72rem; }
+  .price.unset { color: var(--muted); font-weight: 500; font-size: 1rem; }
   .tags { display: flex; flex-wrap: wrap; gap: 6px; }
   .tag {
-    font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
-    background: #eef2ee; color: var(--accent); border: 1px solid #d7e5db;
+    font-size: 0.7rem; font-weight: 600; padding: 3px 9px; border-radius: 999px;
+    background: var(--bg-soft); color: var(--ink-soft); border: 1px solid var(--line); letter-spacing: 0.01em;
   }
-  .text { font-size: 0.85rem; color: #3a3f3a; line-height: 1.35; max-height: 4.6em; overflow: hidden; }
-  .meta { font-size: 0.75rem; color: var(--muted); margin-top: auto; display: flex; justify-content: space-between; align-items: center; }
-  .meta a { color: var(--accent); text-decoration: none; }
-  .empty { padding: 60px 24px; text-align: center; color: var(--muted); }
+  .tag.pin-real { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft-line); }
+  .tag.pin-approx { background: var(--blue-soft); color: var(--blue); border-color: var(--blue-soft-line); }
+  .text { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.45; max-height: 4.6em; overflow: hidden; }
+  .meta {
+    font-size: 0.74rem; color: var(--muted); margin-top: auto; padding-top: 8px;
+    border-top: 1px dashed var(--line-soft);
+    display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  .meta a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  .meta a:hover { text-decoration: underline; }
+  .contact-line { font-size: 0.74rem; color: var(--muted); }
+
+  .empty {
+    padding: 80px 24px; text-align: center; color: var(--muted);
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .empty-icon {
+    width: 48px; height: 48px; border-radius: 14px; background: var(--bg-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 1.4rem;
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>Cambodia Listings Tracker</h1>
+  <div class="brand">
+    <div class="brand-mark"></div>
+    <h1>Cambodia Listings Tracker</h1>
+  </div>
   <div class="sub"><span id="count"></span> &middot; <a href="map.html">view as map</a></div>
 </header>
 
@@ -80,11 +147,14 @@
 
   <input type="text" id="q" placeholder="Search text...">
   <button type="submit">Filter</button>
-  <a href="#" id="clear" style="align-self:center; font-size:0.85rem; color:var(--muted);">Clear</a>
+  <a href="#" id="clear" class="clear-link">Clear</a>
 </form>
 
 <div class="grid" id="grid"></div>
-<div class="empty" id="empty" style="display:none;">No listings match these filters.</div>
+<div class="empty" id="empty" style="display:none;">
+  <div class="empty-icon">&#127968;</div>
+  <div>No listings match these filters.</div>
+</div>
 
 <script>
 let listings = [];
@@ -131,14 +201,14 @@ function render() {
 
   filtered.forEach(l => {
     const price = l.price_value
-      ? `$${Number(l.price_value).toLocaleString()}` + (l.price_currency === "KHR" ? ' <span style="font-weight:400;color:var(--muted);font-size:0.75rem;">(from riel, approx.)</span>' : "")
-      : '<span style="color:var(--muted); font-weight:400;">price not detected</span>';
+      ? `$${Number(l.price_value).toLocaleString()}` + (l.price_currency === "KHR" ? ' <span class="note">(from riel, approx.)</span>' : "")
+      : "price not detected";
     const tags = [l.listing_kind, l.property_type, l.location, l.bedrooms ? `${l.bedrooms} bed` : null, l.size_text]
       .filter(Boolean).map(t => `<span class="tag">${esc(String(t))}</span>`).join("");
     const precise = l.pin_tier === "real_link";
-    const precisionTag = `<span class="tag" style="background:${precise ? '#eaf5ee' : '#e8f0fb'};color:${precise ? '#1e7e3c' : '#2b6cb0'};border-color:${precise ? '#c9e8d3' : '#cddef5'};">${precise ? '&#10003; real map link' : '~ sangkat + khan'}</span>`;
+    const precisionTag = `<span class="tag ${precise ? 'pin-real' : 'pin-approx'}">${precise ? '&#10003; real map link' : '~ sangkat + khan'}</span>`;
     const img = (l.photo_paths && l.photo_paths.length)
-      ? `<img src="photos/${esc(l.photo_paths[0])}" alt="">` : "";
+      ? `<div class="img-wrap"><img src="photos/${esc(l.photo_paths[0])}" alt="" loading="lazy"></div>` : "";
     const date = (l.posted_at || l.fetched_at || "").slice(0, 10);
     const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">${precise ? "map" : "approx. map"}</a> &middot; ` : "";
     const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
@@ -148,14 +218,14 @@ function render() {
     card.innerHTML = `
       ${img}
       <div class="card-body">
-        <div class="price">${price}</div>
+        <div class="price ${l.price_value ? '' : 'unset'}">${price}</div>
         <div class="tags">${tags}${precisionTag}</div>
         <div class="text">${esc(l.raw_text || "")}</div>
         <div class="meta">
           <span>${esc(l.source_name || "")} &middot; ${esc(date)}${l.posted_by ? " &middot; " + esc(l.posted_by) : ""}</span>
           <span>${mapLink}${openLink}</span>
         </div>
-        ${l.contact ? `<div class="meta">contact: ${esc(l.contact)}</div>` : ""}
+        ${l.contact ? `<div class="contact-line">contact: ${esc(l.contact)}</div>` : ""}
       </div>
     `;
     grid.appendChild(card);
