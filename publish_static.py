@@ -4,7 +4,8 @@ see db._PUBLISH_GATE_SQL -- same set that goes to Sheets/Telegram/Earth)
 into docs/, ready for GitHub Pages. No backend involved: docs/index.html
 and docs/map.html are plain static pages that fetch docs/listings.json
 and filter it client-side in the browser. Each listing carries a
-"pin_tier" field ("real_link" or "sangkat_khan") so the map page can
+"pin_tier" field ("real_link" or "sangkat_khan") plus a "pin_basis" ("real_link",
+"site_coordinate" or "sangkat_khan", for wording the precision label) so the map page can
 color pins by precision.
 
 Run with:
@@ -48,6 +49,7 @@ def export():
         # there isn't one) our sangkat-centroid coordinate-search link.
         d["maps_link"] = link
         d["pin_tier"] = tier
+        d["pin_basis"] = db.pin_basis(row)
         listings.append(d)
 
     (DOCS_DIR / "listings.json").write_text(json.dumps(listings))

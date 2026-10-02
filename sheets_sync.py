@@ -53,7 +53,9 @@ def ensure_header(ws):
 def row_for_listing(row):
     posted = (row["posted_at"] or row["fetched_at"] or "")[:16].replace("T", " ")
     tier, link = db.pin_info(row)
-    precision = "Exact (from post)" if tier == "real_link" else "Approximate (sangkat-level)"
+    basis = db.pin_basis(row)
+    precision = {"real_link": "Exact (from post)",
+                 "site_coordinate": "Approximate (~1 km, from the listing site)"}.get(basis, "Approximate (sangkat-level)")
     return [
         row["raw_text"] or "",
         f"{row['price_value']:,.0f}" if row["price_value"] else "",

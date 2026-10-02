@@ -2,13 +2,14 @@
 Scrapes land listings from aps.com.kh into listings.db, alongside the
 Telegram ones. Same downstream pipeline (sync.py -> publish_static.py).
 
-APS pages have no usable coordinates -- the "Open in google map" link is a
-2-decimal district centroid with longitude/latitude swapped, so it is NOT
-treated as a real pin (source_maps_link stays empty). Instead the title's
-"Place | [District |] Province" is used the same way as a Telegram post's
-sangkat + khan: when BOTH a commune (khum) and district (srok) are given,
-the listing qualifies for a blue (approximate) pin; with only one level it
-is kept but gets no pin (see db._PUBLISH_GATE_SQL).
+APS pages carry an "Open in google map" link, but it is maps.google.com/
+?q=<lon>,<lat> -- longitude first, rounded to 2 decimals (~1 km) -- so it
+is NOT a real pin (source_maps_link stays empty). It IS a per-listing
+coordinate though, so after un-swapping and checking it falls inside the
+listing's province it becomes a blue (approximate) pin (approx_coords).
+Failing that, a title naming BOTH a commune (khum) and district (srok)
+is geocoded the same way as a Telegram post's sangkat + khan; anything
+else is kept but gets no pin (see db._PUBLISH_GATE_SQL).
 
 Rules applied: land only; updated within --days (default 183 = ~6 months);
 only the target provinces below; one row per property (newest "Updated"
@@ -46,6 +47,17 @@ PROVINCES = {
     "sihanoukville": "Sihanoukville", "preah sihanouk": "Sihanoukville",
     "kampong chhnang": "Kampong Chhnang", "kampong chnang": "Kampong Chhnang",
     "siem reap": "Siem Reap", "mondulkiri": "Mondulkiri", "mondul kiri": "Mondulkiri",
+}
+# Rough province centers (lat, lon) and the farthest a listing can plausibly
+# be from them, in km. Only used to reject site coordinates that are
+# obviously wrong -- one APS "Kep" listing, for instance, carries a
+# coordinate ~130 km away near Kien Svay in Kandal.
+PROVINCE_CENTERS = {
+    "Phnom Penh": (11.56, 104.92, 25), "Kandal": (11.30, 105.00, 60),
+    "Takeo": (10.99, 104.78, 55), "Kampong Speu": (11.45, 104.52, 85),
+    "Kampot": (10.62, 104.18, 55), "Kep": (10.48, 104.32, 20),
+    "Sihanoukville": (10.75, 103.75, 55), "Kampong Chhnang": (12.25, 104.67, 85),
+    "Siem Reap": (13.40, 104.00, 110), "Mondulkiri": (12.45, 107.20, 110),
 }
 MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
@@ -107,6 +119,35 @@ def canonical_province(raw):
     return None
 
 
+def parse_site_coordinate(page_html):
+    """APS's "Open in google map" link is maps.google.com/?q=<lon>,<lat>
+    -- longitude first, 2 decimals (~1 km) -- so Google can't use it as
+    written. Returns (lat, lon) un-swapped, or None."""
+    m = re.search(r"maps\.google\.com/\?q=(-?\d+\.\d+),(-?\d+\.\d+)", page_html)
+    if not m:
+        return None
+    a, b = float(m.group(1)), float(m.group(2))
+    if 102 <= a <= 108 and 9 <= b <= 15:
+        return b, a
+    if 9 <= a <= 15 and 102 <= b <= 108:
+        return a, b
+    return None
+
+
+def distance_km(lat1, lon1, lat2, lon2):
+    from math import asin, cos, radians, sin, sqrt
+    dlat, dlon = radians(lat2 - lat1), radians(lon2 - lon1)
+    h = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+    return 12742 * asin(sqrt(h))
+
+
+def coordinate_plausible(coord, province):
+    if not coord or province not in PROVINCE_CENTERS:
+        return False
+    clat, clon, radius = PROVINCE_CENTERS[province]
+    return distance_km(coord[0], coord[1], clat, clon) <= radius
+
+
 def main_gallery_photo(page_html):
     """APS serves photos from an S3 bucket, one folder per property. The
     page's own gallery is the folder with the most images; each related-
@@ -161,6 +202,7 @@ def parse_listing(url, page_html):
     commune = places[0] if places else None
     district = places[1] if len(places) >= 2 else None
     phone = extract.PHONE_RE.search(text)
+    site_coord = parse_site_coordinate(page_html)
 
     return {
         "post_id": int(post_id.group(1)), "url": url, "headline": headline,
@@ -168,6 +210,8 @@ def parse_listing(url, page_html):
         "updated": updated, "price_value": price_value, "price_raw": price_raw,
         "size_text": parse_size(headline), "raw_text": raw_text,
         "photo_url": main_gallery_photo(page_html),
+        "site_coord": site_coord,
+        "site_coord_ok": coordinate_plausible(site_coord, province),
         "contact": phone.group(0) if phone else None,
         "listing_kind": extract.extract_listing_kind(headline),
     }
@@ -254,8 +298,15 @@ def main():
     print(f"skipped: {skipped}")
     for u in unparsed_urls:
         print(f"  unparsed: {u}")
-    print(f"with commune AND district (qualify for a blue pin): {len(both)}")
-    print(f"with only one place level (kept, no pin): {len(kept) - len(both)}")
+    site_ok = [it for it in kept if it["site_coord_ok"]]
+    rejected = [it for it in kept if it["site_coord"] and not it["site_coord_ok"]]
+    pinned = [it for it in kept if it["site_coord_ok"] or (it["commune"] and it["district"])]
+    print(f"with a usable site coordinate (blue pin, ~1 km): {len(site_ok)}")
+    print(f"site coordinate rejected as outside its province: {len(rejected)}")
+    for it in rejected:
+        print(f"  rejected: {it['headline'][:40]} | {it['province']} | {it['site_coord']}")
+    print(f"with commune AND district (blue pin even without a coordinate): {len(both)}")
+    print(f"total that will get a pin: {len(pinned)} of {len(kept)}")
     by_prov = {}
     for it in kept:
         by_prov[it["province"]] = by_prov.get(it["province"], 0) + 1
@@ -271,7 +322,6 @@ def main():
     inserted = 0
     with db.get_conn() as conn:
         for it in kept:
-            coords = geocode_for(conn, it) if (it["commune"] and it["district"]) else None
             listing = {
                 "source_type": "web", "source_name": SOURCE_NAME, "message_id": it["post_id"],
                 "message_link": it["url"], "posted_at": it["updated"].isoformat(),
@@ -290,10 +340,18 @@ def main():
             db.insert_listing(conn, listing)
             if conn.total_changes > before:
                 inserted += 1
+            # Pin placement runs on every pass (not just new rows) so
+            # re-running picks up rule changes. The site's own ~1 km
+            # coordinate wins over a place-name geocode.
+            row = conn.execute(
+                "SELECT id FROM listings WHERE source_name=? AND message_id=?",
+                (SOURCE_NAME, it["post_id"])).fetchone()
+            if it["site_coord_ok"]:
+                lat, lon = it["site_coord"]
+                db.set_site_coordinate(conn, row["id"], lat, lon, geocode.maps_link(lat, lon))
+            elif it["commune"] and it["district"]:
+                coords = geocode_for(conn, it)
                 if coords:
-                    row = conn.execute(
-                        "SELECT id FROM listings WHERE source_name=? AND message_id=?",
-                        (SOURCE_NAME, it["post_id"])).fetchone()
                     db.set_geocode_result(conn, row["id"], coords[0], coords[1], geocode.maps_link(*coords))
     print(f"\ninserted {inserted} new listing(s) ({len(kept) - inserted} already in the database)")
 

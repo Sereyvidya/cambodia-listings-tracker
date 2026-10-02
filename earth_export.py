@@ -54,7 +54,9 @@ def build_description(row):
     lines.append(f"Source: {row['source_name']} ({(row['posted_at'] or row['fetched_at'])[:10]})")
     tier, link = db.pin_info(row)
     if link:
-        label = "Open in Google Maps" if tier == "real_link" else "Open in Google Maps (approximate, sangkat-level)"
+        detail = {"real_link": "", "site_coordinate": " (approximate, ~1 km)"}.get(
+            db.pin_basis(row), " (approximate, sangkat-level)")
+        label = "Open in Google Maps" + detail
         lines.append(f'<a href="{link}">{label}</a>')
     return "<br/>".join(l for l in lines if l)
 

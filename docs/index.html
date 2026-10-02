@@ -206,7 +206,7 @@ function render() {
     const tags = [l.listing_kind, l.property_type, l.location, l.bedrooms ? `${l.bedrooms} bed` : null, l.size_text]
       .filter(Boolean).map(t => `<span class="tag">${esc(String(t))}</span>`).join("");
     const precise = l.pin_tier === "real_link";
-    const precisionTag = `<span class="tag ${precise ? 'pin-real' : 'pin-approx'}">${precise ? '&#10003; real map link' : '~ sangkat + khan'}</span>`;
+    const precisionTag = `<span class="tag ${precise ? 'pin-real' : 'pin-approx'}">${precise ? '&#10003; real map link' : (l.pin_basis === "site_coordinate" ? '~ site coordinate (~1 km)' : '~ sangkat + khan')}</span>`;
     const img = (l.photo_paths && l.photo_paths.length)
       ? `<div class="img-wrap"><img src="photos/${esc(l.photo_paths[0])}" alt="" loading="lazy"></div>` : "";
     const date = (l.posted_at || l.fetched_at || "").slice(0, 10);

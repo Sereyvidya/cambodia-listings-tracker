@@ -252,8 +252,11 @@ that needs a machine to run on).
 - **More real estate websites**: each needs its own scraper since every
   site has different HTML. `scrape_aps.py` (aps.com.kh land listings) is
   the first: run it with no flags for a dry run, `--commit` to insert,
-  then `sync.py` / `publish_static.py` as usual. Its listings use the
-  sangkat+khan (blue pin) rule since APS publishes no usable coordinates.
+  then `sync.py` / `publish_static.py` as usual. APS has no real map
+  pins, but each page carries a per-listing coordinate rounded to ~1 km
+  (longitude first, so it's un-swapped and checked against the
+  listing's province); those become blue "approximate" pins, with a
+  commune + district title as the fallback.
   Sites behind bot protection (e.g. khpropertyhub.com's Cloudflare
   challenge) are skipped rather than worked around.
 - **Facebook groups**: technically the hardest and riskiest (Facebook's

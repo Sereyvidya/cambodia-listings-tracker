@@ -16,16 +16,20 @@ from contextlib import contextmanager
 DB_PATH = Path(__file__).parent / "listings.db"
 
 # A listing is worth a pin in Sheets/Telegram/Earth/the published site
-# when EITHER of these holds:
+# when ANY of these holds:
 #  - the poster included a real Google Maps link, and it isn't a
 #    duplicate/reused-reference-point (see compute_duplicate_link_exclusions), or
 #  - the post named BOTH its sangkat (commune) and khan (district) --
 #    per your dad, a sangkat is precise enough to trust even with no
-#    map link at all, but a khan alone is too coarse.
-# Both branches need lat/lon already resolved to actually place a pin.
+#    map link at all, but a khan alone is too coarse, or
+#  - the source website supplied its own coordinate (approx_coords = 1,
+#    see scrape_aps.py) -- rounded to ~1 km, so approximate, but at
+#    least as precise as a sangkat centroid.
+# Every branch needs lat/lon already resolved to actually place a pin.
 _PUBLISH_GATE_SQL = """(
     (source_maps_link IS NOT NULL AND is_duplicate_link = 0)
     OR (khan IS NOT NULL AND sangkat IS NOT NULL)
+    OR approx_coords = 1
 ) AND lat IS NOT NULL"""
 
 SCHEMA = """
@@ -62,6 +66,7 @@ CREATE TABLE IF NOT EXISTS listings (
     sheet_synced_at TEXT,               -- when this row was pushed to Google Sheets
     notified_at TEXT,                   -- when a Telegram notification was sent for this row
     is_duplicate_link INTEGER NOT NULL DEFAULT 0,  -- see db.compute_duplicate_link_exclusions()
+    approx_coords INTEGER NOT NULL DEFAULT 0,      -- lat/lon came from the source site, rounded to ~1 km
     hidden INTEGER NOT NULL DEFAULT 0,  -- lets the dashboard let a user hide junk
     UNIQUE(source_name, message_id)
 );
@@ -103,6 +108,7 @@ _MIGRATED_COLUMNS = {
     "source_maps_link": "TEXT",
     "source_map_resolved_at": "TEXT",
     "is_duplicate_link": "INTEGER NOT NULL DEFAULT 0",
+    "approx_coords": "INTEGER NOT NULL DEFAULT 0",
     "khan": "TEXT",
     "sangkat": "TEXT",
 }
@@ -220,16 +226,29 @@ def pin_info(row):
     """Given a listings row (qualifying per _PUBLISH_GATE_SQL or not),
     returns (tier, display_link):
       - "real_link": the poster's own Google Maps link -- precise.
-      - "sangkat_khan": no real link, but the post named both its sangkat
-        and khan, geocoded from that -- approximate at the sangkat level.
+      - "sangkat_khan": no real link, but approximate -- either the post
+        named both its sangkat and khan (geocoded from that), or the
+        source website gave its own ~1 km coordinate. This tier is the
+        blue pin; see pin_basis() for which of the two it was.
       - None: doesn't qualify for a pin at all.
     display_link is whichever link is appropriate to show for that tier
     (None for the non-qualifying case)."""
     if row["source_maps_link"] and not row["is_duplicate_link"] and row["lat"] is not None:
         return "real_link", row["source_maps_link"]
-    if row["khan"] and row["sangkat"] and row["lat"] is not None:
+    if (row["approx_coords"] or (row["khan"] and row["sangkat"])) and row["lat"] is not None:
         return "sangkat_khan", row["maps_link"]
     return None, None
+
+
+def pin_basis(row):
+    """How the pin was derived: "real_link", "site_coordinate" (the source
+    website's own ~1 km coordinate), "sangkat_khan", or None. Used only to
+    word the on-screen precision labels honestly; color/filtering use the
+    coarser tier from pin_info()."""
+    tier, _ = pin_info(row)
+    if tier != "sangkat_khan":
+        return tier
+    return "site_coordinate" if row["approx_coords"] else "sangkat_khan"
 
 
 def distinct_values(conn, column):
@@ -288,6 +307,16 @@ def listings_needing_geocode(conn):
 def set_geocode_result(conn, listing_id, lat, lon, maps_link):
     conn.execute(
         """UPDATE listings SET lat = ?, lon = ?, maps_link = ?, geocoded_at = ?
+           WHERE id = ?""",
+        (lat, lon, maps_link, datetime.now(timezone.utc).isoformat(), listing_id),
+    )
+
+
+def set_site_coordinate(conn, listing_id, lat, lon, maps_link):
+    """Records a coordinate the source website itself supplied (~1 km
+    precision). Overrides any earlier place-name geocode for this row."""
+    conn.execute(
+        """UPDATE listings SET lat = ?, lon = ?, maps_link = ?, geocoded_at = ?, approx_coords = 1
            WHERE id = ?""",
         (lat, lon, maps_link, datetime.now(timezone.utc).isoformat(), listing_id),
     )

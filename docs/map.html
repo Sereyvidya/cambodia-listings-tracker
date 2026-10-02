@@ -110,7 +110,7 @@
   </div>
   <div class="sub">
     <span class="legend"><span class="dot" style="background:#1d6f52;color:#1d6f52;"></span>real map link (exact)</span>
-    <span class="legend"><span class="dot" style="background:#2f5fa8;color:#2f5fa8;"></span>sangkat + khan (approximate)</span>
+    <span class="legend"><span class="dot" style="background:#2f5fa8;color:#2f5fa8;"></span>approximate (sangkat + khan, or ~1 km site coordinate)</span>
     <span id="count"></span>
     <a href="index.html">view as list</a>
   </div>
@@ -134,7 +134,7 @@
   <select id="pin_tier">
     <option value="">Both pin types</option>
     <option value="real_link">Real map link only</option>
-    <option value="sangkat_khan">Sangkat + khan only</option>
+    <option value="sangkat_khan">Approximate only</option>
   </select>
 
   <input type="text" id="q" placeholder="Search text...">
@@ -205,7 +205,7 @@
       const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">map</a>` : "";
       const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
       const precise = l.pin_tier === "real_link";
-      const precisionNote = precise ? "" : '<div class="popup-precision">approximate · sangkat-level</div>';
+      const precisionNote = precise ? "" : `<div class="popup-precision">approximate · ${l.pin_basis === "site_coordinate" ? "~1 km, from the listing site" : "sangkat-level"}</div>`;
 
       const marker = L.circleMarker([l.lat, l.lon], {
         radius: 9, weight: 2, color: "#fff",

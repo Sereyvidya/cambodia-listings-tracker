@@ -222,7 +222,7 @@
         {% if l.bedrooms %}<span class="tag">{{ l.bedrooms }} bed</span>{% endif %}
         {% if l.size_text %}<span class="tag">{{ l.size_text }}</span>{% endif %}
         {% if l.pin_tier == 'real_link' %}<span class="tag pin-real">&#10003; real map link</span>
-        {% elif l.pin_tier == 'sangkat_khan' %}<span class="tag pin-approx">~ sangkat + khan</span>
+        {% elif l.pin_tier == 'sangkat_khan' %}<span class="tag pin-approx">{{ '~ site coordinate (~1 km)' if l.pin_basis == 'site_coordinate' else '~ sangkat + khan' }}</span>
         {% else %}<span class="tag pin-none">no map pin</span>{% endif %}
       </div>
       <div class="text">{{ l.raw_text }}</div>

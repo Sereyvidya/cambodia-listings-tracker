@@ -49,6 +49,7 @@ def index():
             l = dict(row)
             l["photo_paths"] = json.loads(l["photo_paths"] or "[]")
             l["pin_tier"] = tier
+            l["pin_basis"] = db.pin_basis(row)
             l["pin_link"] = link
             listings.append(l)
 
@@ -93,6 +94,7 @@ def map_view():
             d["photo_paths"] = json.loads(d["photo_paths"] or "[]")
             d["maps_link"] = link
             d["pin_tier"] = tier
+            d["pin_basis"] = db.pin_basis(row)
             rows.append(d)
 
     return render_template(
