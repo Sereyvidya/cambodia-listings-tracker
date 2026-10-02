@@ -9,7 +9,7 @@ reposted with slightly different wording all the time.
 
 import sqlite3
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from contextlib import contextmanager
 
@@ -22,9 +22,10 @@ DB_PATH = Path(__file__).parent / "listings.db"
 #  - the post named BOTH its sangkat (commune) and khan (district) --
 #    per your dad, a sangkat is precise enough to trust even with no
 #    map link at all, but a khan alone is too coarse, or
-#  - the source website supplied its own coordinate (approx_coords = 1,
-#    see scrape_aps.py) -- rounded to ~1 km, so approximate, but at
-#    least as precise as a sangkat centroid.
+#  - the source website supplied its own coordinate for the listing
+#    (approx_coords = 1, see webscrape.store): rounded or blurred by the
+#    site (APS ~1 km, Pointer 150-500 m), so approximate, but at least as
+#    precise as a sangkat centroid.
 # Every branch needs lat/lon already resolved to actually place a pin.
 _PUBLISH_GATE_SQL = """(
     (source_maps_link IS NOT NULL AND is_duplicate_link = 0)
@@ -66,7 +67,7 @@ CREATE TABLE IF NOT EXISTS listings (
     sheet_synced_at TEXT,               -- when this row was pushed to Google Sheets
     notified_at TEXT,                   -- when a Telegram notification was sent for this row
     is_duplicate_link INTEGER NOT NULL DEFAULT 0,  -- see db.compute_duplicate_link_exclusions()
-    approx_coords INTEGER NOT NULL DEFAULT 0,      -- lat/lon came from the source site, rounded to ~1 km
+    approx_coords INTEGER NOT NULL DEFAULT 0,      -- lat/lon is a coordinate the source site gave, blurred/rounded by the site
     hidden INTEGER NOT NULL DEFAULT 0,  -- lets the dashboard let a user hide junk
     UNIQUE(source_name, message_id)
 );
@@ -228,8 +229,8 @@ def pin_info(row):
       - "real_link": the poster's own Google Maps link -- precise.
       - "sangkat_khan": no real link, but approximate -- either the post
         named both its sangkat and khan (geocoded from that), or the
-        source website gave its own ~1 km coordinate. This tier is the
-        blue pin; see pin_basis() for which of the two it was.
+        source website gave its own blurred/rounded coordinate. This tier
+        is the blue pin; see pin_basis() for which of the two it was.
       - None: doesn't qualify for a pin at all.
     display_link is whichever link is appropriate to show for that tier
     (None for the non-qualifying case)."""
@@ -242,9 +243,9 @@ def pin_info(row):
 
 def pin_basis(row):
     """How the pin was derived: "real_link", "site_coordinate" (the source
-    website's own ~1 km coordinate), "sangkat_khan", or None. Used only to
-    word the on-screen precision labels honestly; color/filtering use the
-    coarser tier from pin_info()."""
+    website's own blurred/rounded coordinate), "sangkat_khan", or None.
+    Used only to word the on-screen precision labels honestly; color and
+    filtering use the coarser tier from pin_info()."""
     tier, _ = pin_info(row)
     if tier != "sangkat_khan":
         return tier
@@ -313,8 +314,8 @@ def set_geocode_result(conn, listing_id, lat, lon, maps_link):
 
 
 def set_site_coordinate(conn, listing_id, lat, lon, maps_link):
-    """Records a coordinate the source website itself supplied (~1 km
-    precision). Overrides any earlier place-name geocode for this row."""
+    """Records a coordinate the source website itself supplied (blurred or
+    rounded by the site), overriding any earlier place-name geocode."""
     conn.execute(
         """UPDATE listings SET lat = ?, lon = ?, maps_link = ?, geocoded_at = ?, approx_coords = 1
            WHERE id = ?""",
@@ -322,19 +323,30 @@ def set_site_coordinate(conn, listing_id, lat, lon, maps_link):
     )
 
 
+RESOLVE_RETRY_DAYS = 3
+
+
 def listings_needing_source_map_resolve(conn):
-    """Visible listings with a real poster-provided map link we haven't
-    tried resolving to coordinates yet (see geocode.resolve_source_map_link)."""
+    """Visible listings with a real poster-provided map link that haven't
+    been resolved to coordinates yet (see geocode.resolve_source_map_link).
+    A failed attempt is recorded as "failed:<timestamp>" and retried after
+    RESOLVE_RETRY_DAYS -- failures are usually network hiccups, and treating
+    them as final silently dropped real-link listings from the map."""
+    retry_before = (datetime.now(timezone.utc) - timedelta(days=RESOLVE_RETRY_DAYS)).isoformat()
     return conn.execute(
         """SELECT * FROM listings
-           WHERE hidden = 0 AND source_maps_link IS NOT NULL AND source_map_resolved_at IS NULL"""
+           WHERE hidden = 0 AND source_maps_link IS NOT NULL
+             AND (source_map_resolved_at IS NULL
+                  OR (source_map_resolved_at LIKE 'failed:%' AND substr(source_map_resolved_at, 8) < ?))""",
+        (retry_before,),
     ).fetchall()
 
 
-def mark_source_map_resolved(conn, listing_id):
+def mark_source_map_resolved(conn, listing_id, ok=True):
+    stamp = datetime.now(timezone.utc).isoformat()
     conn.execute(
         "UPDATE listings SET source_map_resolved_at = ? WHERE id = ?",
-        (datetime.now(timezone.utc).isoformat(), listing_id),
+        (stamp if ok else f"failed:{stamp}", listing_id),
     )
 
 

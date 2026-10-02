@@ -24,54 +24,20 @@ Usage:
 import argparse
 import html
 import re
-import time
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-import requests
 
 import db
 import extract
-import geocode
+from webscrape import (
+    canonical_province, coordinate_plausible, dedupe_keep_newest, fetch,
+    has_structures, store,
+)
 
 BASE = "https://aps.com.kh"
 CATEGORY = BASE + "/property/record_type_land/"
 SOURCE_NAME = "aps.com.kh"
-USER_AGENT = "cambodia-listings-tracker/1.0 (personal/family project)"
-DELAY_SECONDS = 1.0
-PHOTOS_DIR = Path(__file__).parent / "photos"
-
-PROVINCES = {
-    "phnom penh": "Phnom Penh", "kandal": "Kandal", "takeo": "Takeo",
-    "kampong speu": "Kampong Speu", "kampot": "Kampot", "kep": "Kep",
-    "sihanoukville": "Sihanoukville", "preah sihanouk": "Sihanoukville",
-    "kampong chhnang": "Kampong Chhnang", "kampong chnang": "Kampong Chhnang",
-    "siem reap": "Siem Reap", "mondulkiri": "Mondulkiri", "mondul kiri": "Mondulkiri",
-}
-# Rough province centers (lat, lon) and the farthest a listing can plausibly
-# be from them, in km. Only used to reject site coordinates that are
-# obviously wrong -- one APS "Kep" listing, for instance, carries a
-# coordinate ~130 km away near Kien Svay in Kandal.
-PROVINCE_CENTERS = {
-    "Phnom Penh": (11.56, 104.92, 25), "Kandal": (11.30, 105.00, 60),
-    "Takeo": (10.99, 104.78, 55), "Kampong Speu": (11.45, 104.52, 85),
-    "Kampot": (10.62, 104.18, 55), "Kep": (10.48, 104.32, 20),
-    "Sihanoukville": (10.75, 103.75, 55), "Kampong Chhnang": (12.25, 104.67, 85),
-    "Siem Reap": (13.40, 104.00, 110), "Mondulkiri": (12.45, 107.20, 110),
-}
 MONTHS = {m: i for i, m in enumerate(
     ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
-
-_last_request = 0.0
-
-
-def fetch(url):
-    global _last_request
-    wait = DELAY_SECONDS - (time.monotonic() - _last_request)
-    if wait > 0:
-        time.sleep(wait)
-    _last_request = time.monotonic()
-    return requests.get(url, headers={"User-Agent": USER_AGENT}, timeout=30)
 
 
 def listing_urls(max_pages):
@@ -111,14 +77,6 @@ def parse_size(headline):
     return f"{m.group(1)} {unit}"
 
 
-def canonical_province(raw):
-    low = raw.lower()
-    for key, canonical in PROVINCES.items():
-        if key in low:
-            return canonical
-    return None
-
-
 def parse_site_coordinate(page_html):
     """APS's "Open in google map" link is maps.google.com/?q=<lon>,<lat>
     -- longitude first, 2 decimals (~1 km) -- so Google can't use it as
@@ -132,20 +90,6 @@ def parse_site_coordinate(page_html):
     if 9 <= a <= 15 and 102 <= b <= 108:
         return a, b
     return None
-
-
-def distance_km(lat1, lon1, lat2, lon2):
-    from math import asin, cos, radians, sin, sqrt
-    dlat, dlon = radians(lat2 - lat1), radians(lon2 - lon1)
-    h = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
-    return 12742 * asin(sqrt(h))
-
-
-def coordinate_plausible(coord, province):
-    if not coord or province not in PROVINCE_CENTERS:
-        return False
-    clat, clon, radius = PROVINCE_CENTERS[province]
-    return distance_km(coord[0], coord[1], clat, clon) <= radius
 
 
 def main_gallery_photo(page_html):
@@ -177,7 +121,7 @@ def parse_listing(url, page_html):
     title = re.sub(r"\s*-\s*APS Cambodia\s*\d*\s*$", "", title)
     segments = [s.strip() for s in title.split("|")]
     headline, rest = segments[0], segments[1:]
-    if not rest or "land" not in headline.lower():
+    if not rest or "land" not in headline.lower() or has_structures(headline):
         return None
     province = canonical_province(rest[-1])
     places = [p for p in rest[:-1] if p and p.lower() != (province or "").lower()]
@@ -215,54 +159,6 @@ def parse_listing(url, page_html):
         "contact": phone.group(0) if phone else None,
         "listing_kind": extract.extract_listing_kind(headline),
     }
-
-
-def dedupe_keep_newest(items):
-    best = {}
-    for it in items:
-        key = (it["price_value"], it["size_text"], it["commune"], it["province"])
-        if key not in best or (it["updated"] and (not best[key]["updated"] or it["updated"] > best[key]["updated"])):
-            best[key] = it
-    return list(best.values())
-
-
-def geocode_for(conn, it):
-    """Commune + district + province, falling back to commune + province.
-    "X Island" is also tried as "Koh X" -- Nominatim knows the island under
-    its Khmer-derived name ("Koh Norea") but not the English one."""
-    queries = [", ".join(p for p in (it["commune"], it["district"], it["province"]) if p)]
-    if it["commune"] and it["commune"].lower().endswith(" island"):
-        koh = "Koh " + it["commune"][: -len(" island")]
-        queries += [", ".join(p for p in (koh, it["province"]) if p)]
-    queries.append(", ".join(p for p in (it["commune"], it["province"]) if p))
-    for query in queries:
-        cached = db.get_cached_geocode(conn, query)
-        if cached is None:
-            coords = geocode.geocode(query)
-            db.set_cached_geocode(conn, query, *(coords if coords else (None, None)))
-        else:
-            coords = cached if cached[0] is not None else None
-        if coords:
-            return coords
-    return None
-
-
-def download_photo(it):
-    if not it["photo_url"]:
-        return []
-    PHOTOS_DIR.mkdir(exist_ok=True)
-    name = f"{SOURCE_NAME}_{it['post_id']}.jpg"
-    dest = PHOTOS_DIR / name
-    if dest.exists():
-        return [name]
-    try:
-        resp = fetch(it["photo_url"])
-        if resp.status_code == 200 and resp.content:
-            dest.write_bytes(resp.content)
-            return [name]
-    except requests.RequestException as e:
-        print(f"  (photo failed for {it['post_id']}: {e})")
-    return []
 
 
 def main():
@@ -322,37 +218,8 @@ def main():
     inserted = 0
     with db.get_conn() as conn:
         for it in kept:
-            listing = {
-                "source_type": "web", "source_name": SOURCE_NAME, "message_id": it["post_id"],
-                "message_link": it["url"], "posted_at": it["updated"].isoformat(),
-                "fetched_at": datetime.now(timezone.utc).isoformat(), "raw_text": it["raw_text"],
-                "price_value": it["price_value"], "price_currency": "USD" if it["price_value"] else None,
-                "price_raw": it["price_raw"], "location": it["commune"] or it["province"],
-                "khan": it["district"] if (it["commune"] and it["district"]) else None,
-                "sangkat": it["commune"] if (it["commune"] and it["district"]) else None,
-                "property_type": "land", "bedrooms": None, "size_text": it["size_text"],
-                "listing_kind": it["listing_kind"], "contact": it["contact"],
-                "posted_by": "APS Cambodia", "photo_paths": download_photo(it),
-                "dedup_hash": extract.make_dedup_hash(it["price_value"], it["commune"], "land", it["raw_text"]),
-                "source_maps_link": None,
-            }
-            before = conn.total_changes
-            db.insert_listing(conn, listing)
-            if conn.total_changes > before:
+            if store(conn, SOURCE_NAME, it, "APS Cambodia"):
                 inserted += 1
-            # Pin placement runs on every pass (not just new rows) so
-            # re-running picks up rule changes. The site's own ~1 km
-            # coordinate wins over a place-name geocode.
-            row = conn.execute(
-                "SELECT id FROM listings WHERE source_name=? AND message_id=?",
-                (SOURCE_NAME, it["post_id"])).fetchone()
-            if it["site_coord_ok"]:
-                lat, lon = it["site_coord"]
-                db.set_site_coordinate(conn, row["id"], lat, lon, geocode.maps_link(lat, lon))
-            elif it["commune"] and it["district"]:
-                coords = geocode_for(conn, it)
-                if coords:
-                    db.set_geocode_result(conn, row["id"], coords[0], coords[1], geocode.maps_link(*coords))
     print(f"\ninserted {inserted} new listing(s) ({len(kept) - inserted} already in the database)")
 
 

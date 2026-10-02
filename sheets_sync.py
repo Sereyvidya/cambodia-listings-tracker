@@ -55,7 +55,7 @@ def row_for_listing(row):
     tier, link = db.pin_info(row)
     basis = db.pin_basis(row)
     precision = {"real_link": "Exact (from post)",
-                 "site_coordinate": "Approximate (~1 km, from the listing site)"}.get(basis, "Approximate (sangkat-level)")
+                 "site_coordinate": "Approximate (coordinate from the listing site)"}.get(basis, "Approximate (sangkat-level)")
     return [
         row["raw_text"] or "",
         f"{row['price_value']:,.0f}" if row["price_value"] else "",

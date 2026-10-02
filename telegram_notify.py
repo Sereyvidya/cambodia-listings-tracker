@@ -51,7 +51,7 @@ def format_listing_message(row):
         lines.append(f"Posted by: {row['posted_by']}")
     lines.append(f"Source: {row['source_name']}")
     tier, link = db.pin_info(row)
-    note = {"real_link": "", "site_coordinate": " (approximate, ~1 km, from the listing site)"}.get(
+    note = {"real_link": "", "site_coordinate": " (approximate, from the listing site)"}.get(
         db.pin_basis(row), " (approximate, sangkat-level)")
     lines.append(f"Map: {link}{note}")
     return "\n".join(lines)

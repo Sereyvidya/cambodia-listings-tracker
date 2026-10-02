@@ -7,6 +7,8 @@ all listings in one place" idea — this version only covers Telegram
 Facebook groups are natural next additions, but each needs its own
 separate piece of work (see "Where this could go next" below).
 
+> **Which sources we collect, what we exclude from each, and why:** see [SOURCES.md](SOURCES.md).
+
 ## What you get
 
 - `listener.py` — logs into Telegram and pulls listing-like messages
@@ -257,6 +259,14 @@ that needs a machine to run on).
   (longitude first, so it's un-swapped and checked against the
   listing's province); those become blue "approximate" pins, with a
   commune + district title as the fallback.
+  `scrape_pointer.py` (pointerasia.com, which feeds khpropertyhub.com's
+  listings) and `scrape_ips.py` (ips-cambodia.com) work the same way: both
+  sites publish a deliberately blurred per-listing coordinate (Pointer
+  ~150-500 m), used as a blue pin once it passes the province check. IPS
+  stamped most of its listings with one bulk migration date, so by default
+  only listings with a genuine date are imported (`--include-undated` to
+  override). All three take `--commit`, `--days` (default 183) and read
+  each site's own sitemap rather than crawling its search pages.
   Sites behind bot protection (e.g. khpropertyhub.com's Cloudflare
   challenge) are skipped rather than worked around.
 - **Facebook groups**: technically the hardest and riskiest (Facebook's

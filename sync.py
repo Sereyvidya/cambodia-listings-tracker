@@ -64,7 +64,7 @@ def resolve_source_map_links(conn):
             lat, lon = coords
             db.set_geocode_result(conn, row["id"], lat, lon, geocode.maps_link(lat, lon))
             resolved += 1
-        db.mark_source_map_resolved(conn, row["id"])
+        db.mark_source_map_resolved(conn, row["id"], ok=bool(coords))
     return len(pending), resolved
 
 
