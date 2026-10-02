@@ -249,10 +249,13 @@ that needs a machine to run on).
 
 ## Where this could go next
 
-- **Real estate websites** (Realestate.com.kh, Khmer24, etc.): each
-  needs its own scraper since every site has different HTML — happy to
-  build these next, one at a time, once this Telegram piece is proven
-  out.
+- **More real estate websites**: each needs its own scraper since every
+  site has different HTML. `scrape_aps.py` (aps.com.kh land listings) is
+  the first: run it with no flags for a dry run, `--commit` to insert,
+  then `sync.py` / `publish_static.py` as usual. Its listings use the
+  sangkat+khan (blue pin) rule since APS publishes no usable coordinates.
+  Sites behind bot protection (e.g. khpropertyhub.com's Cloudflare
+  challenge) are skipped rather than worked around.
 - **Facebook groups**: technically the hardest and riskiest (Facebook's
   terms prohibit automated scraping and can ban the automating account).
   Worth revisiting once you know whether Telegram + websites alone cover
