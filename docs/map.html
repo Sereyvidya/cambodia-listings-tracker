@@ -109,8 +109,9 @@
     <h1>Cambodia Listings Tracker — Map</h1>
   </div>
   <div class="sub">
-    <span class="legend"><span class="dot" style="background:#1d6f52;color:#1d6f52;"></span>real map link (exact)</span>
-    <span class="legend"><span class="dot" style="background:#2f5fa8;color:#2f5fa8;"></span>approximate (sangkat + khan, or a blurred site coordinate)</span>
+    <span class="legend"><span class="dot" style="background:#1d6f52;color:#1d6f52;"></span>land: real map link (exact)</span>
+    <span class="legend"><span class="dot" style="background:#2f5fa8;color:#2f5fa8;"></span>land: approximate (sangkat + khan, or a blurred site coordinate)</span>
+    <span class="legend"><span class="dot" style="background:#7b4fb8;color:#7b4fb8;"></span>not land (house, villa, warehouse...)</span>
     <span id="count"></span>
     <a href="index.html">view as list</a>
   </div>
@@ -205,11 +206,12 @@
       const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">map</a>` : "";
       const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
       const precise = l.pin_tier === "real_link";
-      const precisionNote = precise ? "" : `<div class="popup-precision">approximate · ${l.pin_basis === "site_coordinate" ? "blurred coordinate from the listing site" : "sangkat-level"}</div>`;
+      const isLand = !l.property_type || l.property_type === "land";
+      const precisionNote = precise ? (isLand ? "" : `<div class="popup-precision">exact map link</div>`) : `<div class="popup-precision">approximate · ${l.pin_basis === "site_coordinate" ? "blurred coordinate from the listing site" : "sangkat-level"}</div>`;
 
       const marker = L.circleMarker([l.lat, l.lon], {
         radius: 9, weight: 2, color: "#fff",
-        fillColor: precise ? "#1d6f52" : "#2f5fa8",
+        fillColor: !isLand ? "#7b4fb8" : (precise ? "#1d6f52" : "#2f5fa8"),
         fillOpacity: 0.95,
       });
       marker.bindPopup(`

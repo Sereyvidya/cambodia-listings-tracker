@@ -100,6 +100,9 @@
   }
   .tag.pin-real { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-soft-line); }
   .tag.pin-approx { background: var(--blue-soft); color: var(--blue); border-color: var(--blue-soft-line); }
+  .tag.type-other { color: #7b4fb8; background: color-mix(in srgb, #7b4fb8 12%, transparent); border-color: color-mix(in srgb, #7b4fb8 30%, transparent); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.type-other { color: #b79be3; } }
+  :root[data-theme="dark"] .tag.type-other { color: #b79be3; }
   .text { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.45; max-height: 4.6em; overflow: hidden; }
   .meta {
     font-size: 0.74rem; color: var(--muted); margin-top: auto; padding-top: 8px;
@@ -204,7 +207,7 @@ function render() {
       ? `$${Number(l.price_value).toLocaleString()}` + (l.price_currency === "KHR" ? ' <span class="note">(from riel, approx.)</span>' : "")
       : "price not detected";
     const tags = [l.listing_kind, l.property_type, l.location, l.bedrooms ? `${l.bedrooms} bed` : null, l.size_text]
-      .filter(Boolean).map(t => `<span class="tag">${esc(String(t))}</span>`).join("");
+      .filter(Boolean).map(t => `<span class="tag${(t === l.property_type && l.property_type !== "land") ? " type-other" : ""}">${esc(String(t))}</span>`).join("");
     const precise = l.pin_tier === "real_link";
     const precisionTag = `<span class="tag ${precise ? 'pin-real' : 'pin-approx'}">${precise ? '&#10003; real map link' : (l.pin_basis === "site_coordinate" ? '~ approx. site coordinate' : '~ sangkat + khan')}</span>`;
     const img = (l.photo_paths && l.photo_paths.length)
