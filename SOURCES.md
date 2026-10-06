@@ -5,7 +5,7 @@ list, **what we collect, what we leave out, and why**. Update the relevant
 section whenever a source is processed or a rule changes -- the point is
 that nobody has to re-derive "why isn't X in the map?" later.
 
-Counts are from the last run (2026-10-06) and will drift as listings age. Totals then: 1,338 published pins (452 green real-link, 886 blue approximate).
+Counts are from the last run (2026-10-06) and will drift as listings age. Totals then: 1,356 published pins (470 green real-link, 886 blue approximate).
 
 ## Rules that apply to everything
 
@@ -109,6 +109,8 @@ real map link or both sangkat + khan, and isn't a reused/duplicate link.
 | hotsales061702070 | 274 | 188 | ~95% land; 23% real links, 54% sangkat + khan; a handful of rentals |
 | sokthon2024 | 150 | 108 | Added at your request. ~97% land; 89% have a real map link (the best green-pin source) |
 | kimhong_kps_realestate | 37 | 30 | Land only, 92% real map links, never names sangkat + khan. Looked weak at first (5 published) only because its link lookups had failed -- see "Map-link resolution" below |
+| sokhunKAT | 163 | 7 | On dad's list. 75 land / 72 villa / 10 house / 5 warehouse-factory-building, almost all for sale, 99% Khmer, photos on 98% of posts. Only 11 posts have a real map link and none name sangkat + khan; 112 posts have no location and 36 name only a khan or only a sangkat. 4 reused links, 5 text reposts. Published: 7 green, all land. One of them is a 251 ha plot in Svay Rieng (outside the target provinces) |
+| KoytryPropNexKH | 19 | 10 | On dad's list. Tiny channel (19 posts in 6 months): 12 land / 4 villa / 2 building / 1 house. 12 posts have a real map link (the highest share of any channel apart from kimhong/sokthon2024) but none name sangkat + khan, and only 32% have photos. 10 green pins publish; 3 of them only after the `/maps/search/lat,+lon` link format was added. One is a land plot near 11.98, 105.46 (outside the target provinces). 2 links are place-name searches, 1 reused |
 | infophnompenhland | 142 | 110 | On dad's list. **Best new source**: 137 land / 3 house / 2 warehouse, 140 for sale, 100% Khmer. 89 posts have a real map link and 74 name sangkat + khan, so 69 green + 41 blue publish (107 in Phnom Penh, 1 each Kandal / Siem Reap / Kampong Chhnang). 20 rows flagged duplicate/reused links (16 of them have a real link), 11 posts with no location, 9 text reposts |
 | chailinsearrealty | 75 | 6 | On dad's list. Mixed and mostly Phnom Penh: 34 land / 18 house / 10 building / 7 villa, 11 rentals. Only 8 posts have a real map link and 2 name sangkat + khan; 32 posts name no location and 30 only a khan or only a sangkat. 4 reused links, 2 unresolved links, 11 text reposts. Published: 4 green + 2 blue (2 land, 2 house, 1 building, 1 hotel) |
 | Sakhom | 411 | 14 | On dad's list. Mixed: 188 land / 152 villa / 44 house, and 179 of 411 are rentals; 82% Khmer, 72 English-only posts. Only 34 posts have a real map link and none name sangkat + khan, so just 14 publish (all green; 10 land, in Phnom Penh, Kampong Speu and Kandal). 18 rows flagged duplicate/reused links, 3 place-name search links. The other ~135 geocoded rows are neighborhood guesses, not publishable |
@@ -133,8 +135,12 @@ had 29 of 34 affected). Failed lookups are now stored as `failed:<time>` and
 retried every 3 days (`db.RESOLVE_RETRY_DAYS`). Re-running resolved 273 of
 305 queued links.
 
-The ~32 that still fail (poekhachrealestate 28, sokthon2024 3,
-Ramborealestate 1) are **place-name search links** (`google.com/maps?q=<Khmer
+A second gap was found on 2026-10-06: links that resolve to
+`google.com/maps/search/<lat>,+<lon>` weren't recognized (3 of KoytryPropNexKH's
+5 "failures"); that pattern is now handled and every failed link was retried
+(+4 pins). The 41 that still fail (poekhachrealestate 31, sokthon2024 3,
+KoytryPropNexKH 2, chailinsearrealty 2, one each for Ramborealestate, Sakhom
+and kimhong_kps_realestate) are **place-name search links** (`google.com/maps?q=<Khmer
 place name>`): they carry text, not coordinates, so there's no pin to read.
 They stay unpublished. **Open question for dad:** should those be geocoded
 from the place text and shown as blue (approximate) pins?
@@ -162,8 +168,8 @@ mapping each borey/mall to a sangkat + khan (so it follows dad's own
 sangkat rule), not free-text geocoding.
 
 ### Still to do from dad's list (not yet collected)
-Channels: សេវាអចលនទ្រព្យ,
-@KoytryPropNexKH, ដីលក់ល្អៗ តម្លៃពិសេសៗ, @sokhunKAT,
+Channels: សេវាអចលនទ្រព្យ and ដីលក់ល្អៗ តម្លៃពិសេសៗ (listed by
+title only -- need a @username or invite link before they can be read),
 @SengHeng_Property, @dealcorecambodia, @Sensoklandpricecenter,
 @onelandrealestate168, @somtola007, @leng_enghuo99, @Land_South_City,
 @DreamPropertySolution, @kanalmao168, @SevenDaysRealEstate, @pointerproperty
@@ -176,6 +182,6 @@ Groups: S.V Gold Realty Co.Ltd, @Land_Home168, Camlink Properties,
 collected, above. For each new channel, record its language, mix of land vs.
 houses, how often it posts a real map link / sangkat + khan, and anything odd.)
 
-Done so far: @basacrealtycoltd and @Sakhom (2026-10-02); @infophnompenhland and @chailinsearrealty (2026-10-06). Collected under the pin rules above; **not** restricted to land or to the target provinces, so villas/houses/warehouses/rentals from them are on the site. They're drawn **purple** on the map (and tagged purple in the list) so they stand out from land; the type filter separates them too. Decision (2026-10-06): keep non-land listings and mark them purple rather than restricting to land only.
+Done so far: @basacrealtycoltd and @Sakhom (2026-10-02); @infophnompenhland, @chailinsearrealty, @KoytryPropNexKH and @sokhunKAT (2026-10-06). Collected under the pin rules above; **not** restricted to land or to the target provinces, so villas/houses/warehouses/rentals from them are on the site. They're drawn **purple** on the map (and tagged purple in the list) so they stand out from land; the type filter separates them too. Decision (2026-10-06): keep non-land listings and mark them purple rather than restricting to land only.
 
 Record each one above -- with what was excluded and why -- as it's processed.

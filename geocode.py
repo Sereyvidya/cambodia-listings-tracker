@@ -28,6 +28,7 @@ _COORD_PATTERNS = [
     re.compile(r"!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)"),  # place-detail URLs
     re.compile(r"/place/(-?\d+\.\d+),(-?\d+\.\d+)"),  # bare-coordinate place URLs
     re.compile(r"[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)"),  # "dropped pin" share URLs (?q=lat,lon)
+    re.compile(r"/search/(-?\d+\.\d+),(?:\+|%20|\s)*(-?\d+\.\d+)"),  # /maps/search/lat,+lon share URLs
     re.compile(r"[@,](-?\d+\.\d+),(-?\d+\.\d+)"),  # @lat,lon,zoom map-view URLs
 ]
 
