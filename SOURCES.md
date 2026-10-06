@@ -5,7 +5,7 @@ list, **what we collect, what we leave out, and why**. Update the relevant
 section whenever a source is processed or a rule changes -- the point is
 that nobody has to re-derive "why isn't X in the map?" later.
 
-Counts are from the last run (2026-10-06) and will drift as listings age. Totals then: 1,356 published pins (470 green real-link, 886 blue approximate).
+Counts are from the last run (2026-10-06) and will drift as listings age. Totals then: 1,422 published pins (535 green real-link, 887 blue approximate).
 
 ## Rules that apply to everything
 
@@ -109,6 +109,8 @@ real map link or both sangkat + khan, and isn't a reused/duplicate link.
 | hotsales061702070 | 274 | 188 | ~95% land; 23% real links, 54% sangkat + khan; a handful of rentals |
 | sokthon2024 | 150 | 108 | Added at your request. ~97% land; 89% have a real map link (the best green-pin source) |
 | kimhong_kps_realestate | 37 | 30 | Land only, 92% real map links, never names sangkat + khan. Looked weak at first (5 published) only because its link lookups had failed -- see "Map-link resolution" below |
+| dealcorecambodia | 80 | 52 | On dad's list. **Second-best new source** after infophnompenhland: 78 land, 1 building, almost nothing else; 94% Khmer (5 English-only), photos on 99% of posts. 57 of 80 posts carry a real map link and all 84 link lookups in this batch resolved. 51 green + 1 blue publish (40 in Phnom Penh, 10 Kampong Speu, 1 each Takeo and Kandal). 24 posts don't say sale or rent (listing kind blank); 15 name only an area, 6 reuse a link already used, 5 name only a khan or sangkat. Posts start 2026-07-01 (a younger channel, so the 180-day window found fewer) |
+| SengHeng_Property | 97 | 14 | On dad's list. 61 land / 13 villa / 9 house / 7 building / 5 warehouse; 84 sale, 10 rent; 100% Khmer; photos on only 36% of posts. 27 posts have a real map link but 13 of those reuse a link already used by another post (flagged and excluded), none name sangkat + khan, 42 name only a khan or only a sangkat, 27 have no location, 17 are text reposts. Published: 14 green (13 land, 1 untyped; Phnom Penh 6, Kandal 5, Kampong Speu 2, Mondulkiri 1) |
 | sokhunKAT | 163 | 7 | On dad's list. 75 land / 72 villa / 10 house / 5 warehouse-factory-building, almost all for sale, 99% Khmer, photos on 98% of posts. Only 11 posts have a real map link and none name sangkat + khan; 112 posts have no location and 36 name only a khan or only a sangkat. 4 reused links, 5 text reposts. Published: 7 green, all land. One of them is a 251 ha plot in Svay Rieng (outside the target provinces) |
 | KoytryPropNexKH | 19 | 10 | On dad's list. Tiny channel (19 posts in 6 months): 12 land / 4 villa / 2 building / 1 house. 12 posts have a real map link (the highest share of any channel apart from kimhong/sokthon2024) but none name sangkat + khan, and only 32% have photos. 10 green pins publish; 3 of them only after the `/maps/search/lat,+lon` link format was added. One is a land plot near 11.98, 105.46 (outside the target provinces). 2 links are place-name searches, 1 reused |
 | infophnompenhland | 142 | 110 | On dad's list. **Best new source**: 137 land / 3 house / 2 warehouse, 140 for sale, 100% Khmer. 89 posts have a real map link and 74 name sangkat + khan, so 69 green + 41 blue publish (107 in Phnom Penh, 1 each Kandal / Siem Reap / Kampong Chhnang). 20 rows flagged duplicate/reused links (16 of them have a real link), 11 posts with no location, 9 text reposts |
@@ -170,7 +172,7 @@ sangkat rule), not free-text geocoding.
 ### Still to do from dad's list (not yet collected)
 Channels: សេវាអចលនទ្រព្យ and ដីលក់ល្អៗ តម្លៃពិសេសៗ (listed by
 title only -- need a @username or invite link before they can be read),
-@SengHeng_Property, @dealcorecambodia, @Sensoklandpricecenter,
+@Sensoklandpricecenter,
 @onelandrealestate168, @somtola007, @leng_enghuo99, @Land_South_City,
 @DreamPropertySolution, @kanalmao168, @SevenDaysRealEstate, @pointerproperty
 (likely overlaps the Pointer website -- expect duplicates), @propnexcambodiarealestate,
@@ -182,6 +184,6 @@ Groups: S.V Gold Realty Co.Ltd, @Land_Home168, Camlink Properties,
 collected, above. For each new channel, record its language, mix of land vs.
 houses, how often it posts a real map link / sangkat + khan, and anything odd.)
 
-Done so far: @basacrealtycoltd and @Sakhom (2026-10-02); @infophnompenhland, @chailinsearrealty, @KoytryPropNexKH and @sokhunKAT (2026-10-06). Collected under the pin rules above; **not** restricted to land or to the target provinces, so villas/houses/warehouses/rentals from them are on the site. They're drawn **purple** on the map (and tagged purple in the list) so they stand out from land; the type filter separates them too. Decision (2026-10-06): keep non-land listings and mark them purple rather than restricting to land only.
+Done so far: @basacrealtycoltd and @Sakhom (2026-10-02); @infophnompenhland, @chailinsearrealty, @KoytryPropNexKH, @sokhunKAT, @SengHeng_Property and @dealcorecambodia (2026-10-06). Collected under the pin rules above; **not** restricted to land or to the target provinces, so villas/houses/warehouses/rentals from them are on the site. They're drawn **purple** on the map (and tagged purple in the list) so they stand out from land; the type filter separates them too. Decision (2026-10-06): keep non-land listings and mark them purple rather than restricting to land only.
 
 Record each one above -- with what was excluded and why -- as it's processed.
