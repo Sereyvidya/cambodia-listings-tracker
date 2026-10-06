@@ -5,7 +5,7 @@ list, **what we collect, what we leave out, and why**. Update the relevant
 section whenever a source is processed or a rule changes -- the point is
 that nobody has to re-derive "why isn't X in the map?" later.
 
-Counts are from the last run (2026-10-02) and will drift as listings age. Totals then: 1,160 published pins (360 green real-link, 800 blue approximate).
+Counts are from the last run (2026-10-02) and will drift as listings age. Totals then: 1,211 published pins (380 green real-link, 831 blue approximate).
 
 ## Rules that apply to everything
 
@@ -13,6 +13,7 @@ Counts are from the last run (2026-10-02) and will drift as listings age. Totals
 |---|---|---|
 | Only listings updated in the **last ~6 months** (`--days 183` for websites; `first_time_backfill_days: 180` once per new Telegram channel, then `backfill_days: 10`) | scrapers / `listener.py` | Dad: use the latest posts; started at 1 year, then "just the latest 6 months for now" |
 | **Land only**, in Phnom Penh, Kandal, Takeo, Kampong Speu, Kampot, Kep, Sihanoukville, Kampong Chhnang, Siem Reap, Mondulkiri | website scrapers (`webscrape.PROVINCES`) | Dad's criteria for the new list. Earlier Telegram channels were collected before this rule existed and aren't limited to these provinces; most are overwhelmingly land, but e.g. Ramborealestate is mostly houses (filter by type in the dashboard) |
+| **Telegram property type** comes from the earliest type keyword in the post (`extract.extract_property_type`), now including warehouse (ឃ្លាំង), factory (រោងចក្រ), building (អគារ) and hotel/guesthouse; a structure word right after "near / facing / and / area of" (ជិត, មុខ, និង, តំបន់ ...) is ignored | `extract.py` | Warehouses and buildings were being tagged "land" because "ទំហំដី" (land size) appeared in their text. 128 stored rows were re-typed on 2026-10-06 (45 land->warehouse, 33 land->building, etc.). Land posts that merely mention neighboring factories/warehouses stay land |
 | **Not "land with a building"** ("Land and Building", "Land with House and Warehouse", "Land and Warehouse") | `webscrape.has_structures()` | Dad asked for plain land. "Land with Title" and similar are kept |
 | **A listing is only published if it has a pin**: real Google Maps link from the post (green), or both sangkat AND khan named (blue), or a coordinate supplied by the listing site (blue) | `db._PUBLISH_GATE_SQL` | Dad: only properties with a map link; relaxed to sangkat + khan, and later to site-supplied coordinates. A khan alone or a sangkat alone doesn't qualify |
 | Site coordinates must fall **inside the listing's own province** (distance from the province centre) | `webscrape.coordinate_plausible()` | Catches placeholder / wrong coordinates (see APS Kep, IPS below); the listing falls back to commune + district geocoding or gets no pin |
@@ -108,6 +109,8 @@ real map link or both sangkat + khan, and isn't a reused/duplicate link.
 | hotsales061702070 | 274 | 188 | ~95% land; 23% real links, 54% sangkat + khan; a handful of rentals |
 | sokthon2024 | 150 | 108 | Added at your request. ~97% land; 89% have a real map link (the best green-pin source) |
 | kimhong_kps_realestate | 37 | 30 | Land only, 92% real map links, never names sangkat + khan. Looked weak at first (5 published) only because its link lookups had failed -- see "Map-link resolution" below |
+| Sakhom | 411 | 14 | On dad's list. Mixed: 188 land / 152 villa / 44 house, and 179 of 411 are rentals; 82% Khmer, 72 English-only posts. Only 34 posts have a real map link and none name sangkat + khan, so just 14 publish (all green; 10 land, in Phnom Penh, Kampong Speu and Kandal). 18 rows flagged duplicate/reused links, 3 place-name search links. The other ~135 geocoded rows are neighborhood guesses, not publishable |
+| basacrealtycoltd | 226 | 24 | On dad's list. Mostly villas/houses (102 villa / 52 house / 66 land), 63 rentals; 99% Khmer. 6 real links but 19 posts name sangkat + khan, so 19 blue + 5 green publish (12 land, 12 villa/house/unknown; all Phnom Penh) |
 | landforsell789 | 28 | 5 | On dad's list. 21% real links, no sangkat + khan, 7 posts with no clear sale/rent word |
 | Land_investment_Good | 5 | 1 | Almost nothing posted |
 | century21diamond | 104 | 0 | **Dropped** on your request ("stop considering"); rows hidden |
@@ -134,8 +137,30 @@ place name>`): they carry text, not coordinates, so there's no pin to read.
 They stay unpublished. **Open question for dad:** should those be geocoded
 from the place text and shown as blue (approximate) pins?
 
+### Landmark / borey pins -- investigated, on hold (2026-10-06)
+Many unpinned posts name a borey, mall, market or wat instead of a sangkat +
+khan (662 of 1,521 unpinned Telegram rows name one). We looked at pinning
+those and **held off**, because there's no reliable free source for the
+coordinates:
+- **OSM/Nominatim doesn't know most boreys.** Peng Huoth Boeung Snor, all
+  the Chip Mong boreys and New World returned nothing; only a few exist
+  (The Flora, the AEON malls, markets like ផ្សារឈូកមាស, big landmarks like
+  Techo airport).
+- **We can't learn them from our own data**: the channels that name boreys
+  (Sakhom, basacrealtycoltd) almost never include a map link for them.
+- **"Near AEON 2" is loose**: real-link posts that mention AEON 2 sit ~1.2 km
+  from the mall at the median but up to ~6 km away.
+- **Names repeat across the country** (many wats and markets share a name),
+  so a name alone would often pin the wrong one.
+- Boreys are mostly villas/houses, so under the land-only rule they matter
+  little; only ~34 land posts name a specific AEON mall (24 AEON 2, 7 AEON
+  3, 3 AEON 4) and ~256 name any landmark class.
+If revisited: the most defensible version is a small hand-checked table
+mapping each borey/mall to a sangkat + khan (so it follows dad's own
+sangkat rule), not free-text geocoding.
+
 ### Still to do from dad's list (not yet collected)
-Channels: @basacrealtycoltd, @Sakhom, @infophnompenhland, សេវាអចលនទ្រព្យ,
+Channels: @infophnompenhland, សេវាអចលនទ្រព្យ,
 @chailinsearrealty, @KoytryPropNexKH, ដីលក់ល្អៗ តម្លៃពិសេសៗ, @sokhunKAT,
 @SengHeng_Property, @dealcorecambodia, @Sensoklandpricecenter,
 @onelandrealestate168, @somtola007, @leng_enghuo99, @Land_South_City,
@@ -148,5 +173,7 @@ Groups: S.V Gold Realty Co.Ltd, @Land_Home168, Camlink Properties,
 (@poekhachrealestate and @landforsell789 from the same list are already
 collected, above. For each new channel, record its language, mix of land vs.
 houses, how often it posts a real map link / sangkat + khan, and anything odd.)
+
+Done so far: @basacrealtycoltd and @Sakhom (2026-10-02). Collected under the pin rules above; **not** restricted to land or to the target provinces (only 12 + 10 of the published ones are land), so villas/houses/rentals from them are on the site -- the dashboard type filter separates them. Open question: restrict dad-list channels to land only?
 
 Record each one above -- with what was excluded and why -- as it's processed.

@@ -108,6 +108,21 @@ PROPERTY_TYPES = {
     "អាផាតមិន": "apartment",
     "កុងដូ": "condo",
     "ការិយាល័យ": "office",
+    # Commercial structures. These used to fall through to "land" (the
+    # "ដី" in "ទំហំដី: land size" came first), so a warehouse or building
+    # for sale/rent was counted as land. (extract_property_type breaks
+    # position ties toward the longer keyword, so "ផ្ទះសំណាក់" beats "ផ្ទះ".)
+    "warehouse": "warehouse",
+    "ឃ្លាំង": "warehouse",
+    "factory": "factory",
+    "រោងចក្រ": "factory",
+    "hotel": "hotel",
+    "សណ្ឋាគារ": "hotel",
+    "guesthouse": "hotel",
+    "guest house": "hotel",
+    "ផ្ទះសំណាក់": "hotel",
+    "building": "building",
+    "អគារ": "building",
 }
 
 RENT_WORDS = ["for rent", "to rent", "rent", "lease", "monthly", "ជួល"]
@@ -213,6 +228,31 @@ def extract_location(text):
     return None
 
 
+# Structure keywords describe what a post is selling only when they stand
+# on their own ("ឃ្លាំងសម្រាប់ជួល" = warehouse for rent). Land posts often
+# describe neighbors -- "មុខបុរី ... និង រោងចក្រ នានា" (facing a borey and
+# various factories) -- so an occurrence right after one of these words is
+# ignored.
+_STRUCTURE_TYPES = {"warehouse", "factory", "hotel", "building"}
+_NEIGHBOR_WORDS = ("ជិត", "មុខ", "ជាប់", "ក្បែរ", "និង", "ម្តុំ", "តំបន់", "near", "next to",
+                   "beside", "facing", "opposite", "around", "and ")
+
+
+def _find_keyword(lower, kw, normalized):
+    """Position of the first usable occurrence of kw, or -1."""
+    start = 0
+    while True:
+        pos = lower.find(kw, start)
+        if pos == -1:
+            return -1
+        if normalized not in _STRUCTURE_TYPES:
+            return pos
+        before = lower[max(0, pos - 14):pos].rstrip(" \u200b")
+        if not any(before.endswith(w.rstrip()) for w in _NEIGHBOR_WORDS):
+            return pos
+        start = pos + len(kw)
+
+
 def extract_property_type(text):
     """Picks whichever keyword occurs EARLIEST in the text, not whichever
     is checked first in PROPERTY_TYPES -- these posts almost always name
@@ -220,16 +260,15 @@ def extract_property_type(text):
     in passing (most commonly: a house listing stating its land size,
     e.g. "ទំហំដី: 15m x 50m", would otherwise always get overridden to
     "land" just because "ដី" happens to come first in the dict, even
-    though "ផ្ទះ" (house) appeared earlier in the actual post)."""
+    though "ផ្ទះ" (house) appeared earlier in the actual post). Ties on
+    position go to the longer keyword ("ផ្ទះសំណាក់" beats "ផ្ទះ")."""
     lower = text.lower()
-    best_kw = None
-    best_pos = None
+    best = None
     for kw, normalized in PROPERTY_TYPES.items():
-        pos = lower.find(kw)
-        if pos != -1 and (best_pos is None or pos < best_pos):
-            best_pos = pos
-            best_kw = normalized
-    return best_kw
+        pos = _find_keyword(lower, kw, normalized)
+        if pos != -1 and (best is None or (pos, -len(kw)) < best[0]):
+            best = ((pos, -len(kw)), normalized)
+    return best[1] if best else None
 
 
 def extract_bedrooms(text):
