@@ -5,7 +5,7 @@ list, **what we collect, what we leave out, and why**. Update the relevant
 section whenever a source is processed or a rule changes -- the point is
 that nobody has to re-derive "why isn't X in the map?" later.
 
-Counts are from the last run (2026-10-06) and will drift as listings age. Totals then: 1,884 published pins (678 green real-link, 1,206 blue approximate).
+Counts are from the last run (2026-10-07) and will drift as listings age. Totals then: 3,630 published pins: 678 green real-link, 1,211 blue approximate, 1,741 yellow "date unknown" (IPS bulk-dated, see below).
 
 ## Rules that apply to everything
 
@@ -14,6 +14,7 @@ Counts are from the last run (2026-10-06) and will drift as listings age. Totals
 | Only listings updated in the **last ~6 months** (`--days 183` for websites; `first_time_backfill_days: 180` once per new Telegram channel, then `backfill_days: 10`) | scrapers / `listener.py` | Dad: use the latest posts; started at 1 year, then "just the latest 6 months for now" |
 | **Land only**, in Phnom Penh, Kandal, Takeo, Kampong Speu, Kampot, Kep, Sihanoukville, Kampong Chhnang, Siem Reap, Mondulkiri | website scrapers (`webscrape.PROVINCES`) | Dad's criteria for the new list. Earlier Telegram channels were collected before this rule existed and aren't limited to these provinces; most are overwhelmingly land, but e.g. Ramborealestate is mostly houses (filter by type in the dashboard) |
 | **Telegram property type** comes from the earliest type keyword in the post (`extract.extract_property_type`), now including warehouse (ឃ្លាំង), factory (រោងចក្រ), building (អគារ) and hotel/guesthouse; a structure word right after "near / facing / and / area of" (ជិត, មុខ, និង, តំបន់ ...) is ignored | `extract.py` | Warehouses and buildings were being tagged "land" because "ទំហំដី" (land size) appeared in their text. 128 stored rows were re-typed on 2026-10-06 (45 land->warehouse, 33 land->building, etc.). Land posts that merely mention neighboring factories/warehouses stay land |
+| **IPS bulk-dated listings are kept but drawn yellow** (`date_unknown`) | `scrape_ips.py --include-undated` | The site gives them only a bulk migration date, so the 6-month rule can't be verified; dad chose to include them with a distinct color rather than leave them out |
 | **Not "land with a building"** ("Land and Building", "Land with House and Warehouse", "Land and Warehouse") | `webscrape.has_structures()` | Dad asked for plain land. "Land with Title" and similar are kept |
 | **A listing is only published if it has a pin**: real Google Maps link from the post (green), or both sangkat AND khan named (blue), or a coordinate supplied by the listing site (blue) | `db._PUBLISH_GATE_SQL` | Dad: only properties with a map link; relaxed to sangkat + khan, and later to site-supplied coordinates. A khan alone or a sangkat alone doesn't qualify |
 | Site coordinates must fall **inside the listing's own province** (distance from the province centre) | `webscrape.coordinate_plausible()` | Catches placeholder / wrong coordinates (see APS Kep, IPS below); the listing falls back to commune + district geocoding or gets no pin |
@@ -70,25 +71,46 @@ covered indirectly through the Pointer scraper.
 - Both sale and rent are kept (39 rent, 72 sale); dad's rule says "land",
   not "sale only".
 
-### ips-cambodia.com -- done (`scrape_ips.py`) -- 143 kept, 142 published
+### ips-cambodia.com -- done (`scrape_ips.py`) -- 1,923 stored (1,773 yellow), 1,888 published (1,741 yellow)
 - **URLs:** `sitemap_index.xml` -> the area sitemaps for target provinces
-  (62 of them; 1,954 land URLs). `?page=` / `?listing_page=` pagination is
+  (62 of them; ~1,950 land URLs). `?page=` / `?listing_page=` pagination is
   disallowed in robots.txt and never used.
 - **Pin source:** `data-lat` / `data-lng` behind the page's "radius map" --
   blurred by the site, so blue / approximate.
+- **Bulk-dated listings -> imported, drawn YELLOW (decision 2026-10-07).**
+  The site stamped ~1,790 listings with just two dates (sitemap lastmod
+  2026-05-19 and 2026-06-23), a migration or bulk update, so their real age
+  is unknowable and the "last 6 months" rule can't be checked. Dad's call:
+  include them but mark them. They're stored with `date_unknown = 1`, drawn
+  **yellow** on the map (legend "date unknown"), tagged "date unknown" in the
+  list, and shown as "date unknown" instead of a date. Import:
+  `python3 scrape_ips.py --include-undated --commit`
+  (~1 hour: ~1,800 pages + photos at 1 request/s; a second pass picked up
+  the ~40 pages that timed out). About 1,780 imported, 10 duplicates (same
+  price/size/commune) dropped, 40 pages that didn't parse as a listing, 1
+  outside the target provinces; ~32 stored but unpinned (no usable
+  coordinate or commune + district) so not published. **Caveat: some of these may
+  be old or already sold.** Photos for these are shrunk to 720 px (~75 KB
+  instead of ~350 KB) so `docs/photos` doesn't blow past GitHub Pages' 1 GB
+  limit (it's now ~575 MB; listings.json is ~8 MB).
+- **Mix:** the bulk-dated set is **86% Siem Reap** (1,492 of 1,741; Phnom Penh
+  157, Kandal 58, Kampot 13, Sihanoukville 10, Kep 5, Kampong Speu 4, Takeo 2),
+  so Siem Reap now dominates the map.
 - **Excluded:**
-  - **~1,790 pages carrying a bulk migration date** (sitemap lastmod
-    2026-05-19 ... 2026-06-23). The site stamped most listings with these
-    dates, so their real age is unknowable and the "latest posts" rule can't
-    be checked. Not fetched by default; `--include-undated` fetches them
-    (~30 min). **Open question for dad:** are these worth importing anyway?
-  - 20 URLs whose slug says building / warehouse / factory / "-with-"
-    (+1 "Commercial Land and House" found on the page and hidden).
+  - ~21 URLs whose slug says building / warehouse / factory / "-with-"
+    (+ a few "Land and House" titles found on the page and hidden).
   - Page "Property Type" must contain "land" (e.g. "Commercial Land" is OK).
-  - 6 site coordinates rejected as implausible -- most were a shared
-    placeholder point (12.5657, 104.9910) that appears on listings in both
-    Phnom Penh and Siem Reap. Those listings were pinned from commune +
-    district instead (5), or left unpinned (1, "Srah Chork").
+  - 54 site coordinates rejected as implausible -- most are a shared
+    placeholder point (12.5657, 104.9910) that appears across Phnom Penh,
+    Siem Reap and Kandal listings. Those listings were pinned from commune +
+    district instead where both are named, or left unpinned.
+  - A handful of photos failed to download (~24 timeouts), so those cards
+    have no picture.
+- Prices: when a page only gave a per-sqm price, the scraper used to store
+  that number as the total ("$700" for a 1,260 sqm plot). Fixed 2026-10-07:
+  total = per-sqm x area (shown as "$882,000 ($700/sqm)"), or left blank
+  (card shows "$110/sqm") when no area is known. 121 stored IPS/APS rows were
+  repaired and 6 blanked.
 - Listing dates use the page's `dateModified` (falling back to
   `datePublished`); the sitemap's `lastmod` matches it.
 - Re-runs fetch only pages that are new or whose sitemap `lastmod` is newer

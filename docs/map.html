@@ -112,6 +112,7 @@
     <span class="legend"><span class="dot" style="background:#1d6f52;color:#1d6f52;"></span>land: real map link (exact)</span>
     <span class="legend"><span class="dot" style="background:#2f5fa8;color:#2f5fa8;"></span>land: approximate (sangkat + khan, or a blurred site coordinate)</span>
     <span class="legend"><span class="dot" style="background:#7b4fb8;color:#7b4fb8;"></span>not land (house, villa, warehouse...)</span>
+    <span class="legend"><span class="dot" style="background:#e0a800;color:#e0a800;"></span>date unknown (bulk-dated by the site)</span>
     <span id="count"></span>
     <a href="index.html">view as list</a>
   </div>
@@ -198,7 +199,7 @@
 
     filtered.forEach(l => {
       if (l.lat == null || l.lon == null) return;
-      const price = l.price_value ? ("$" + Number(l.price_value).toLocaleString()) : "price n/a";
+      const price = l.price_value ? ("$" + Number(l.price_value).toLocaleString()) : (l.price_raw || "price n/a");
       const tags = [l.listing_kind, l.property_type, l.location, l.size_text].filter(Boolean).join(" · ");
       const photo = (l.photo_paths && l.photo_paths.length)
         ? `<img src="photos/${esc(l.photo_paths[0])}" style="width:100%;height:100px;object-fit:cover;margin-bottom:8px;">`
@@ -211,13 +212,14 @@
 
       const marker = L.circleMarker([l.lat, l.lon], {
         radius: 9, weight: 2, color: "#fff",
-        fillColor: !isLand ? "#7b4fb8" : (precise ? "#1d6f52" : "#2f5fa8"),
+        fillColor: l.date_unknown ? "#e0a800" : (!isLand ? "#7b4fb8" : (precise ? "#1d6f52" : "#2f5fa8")),
         fillOpacity: 0.95,
       });
       marker.bindPopup(`
         <div class="popup-card">
           ${photo}
           <div class="popup-price">${esc(price)}</div>
+          ${l.date_unknown ? '<div class="popup-precision">date unknown &middot; the site only gives a bulk import date</div>' : ''}
           ${precisionNote}
           <div class="popup-tags">${esc(tags)}</div>
           <div class="popup-text">${esc((l.raw_text || "").slice(0, 140))}</div>

@@ -114,7 +114,16 @@ def parse_listing(url, page_html):
     if offer:
         price, price_raw = float(offer.group(1)), f"${float(offer.group(1)):,.0f}"
     elif per_sqm:
-        price, price_raw = float(per_sqm.group(1).replace(",", "")), per_sqm.group(0)
+        # Only a per-sqm price: the total is per-sqm x area when the title
+        # gives the area; otherwise leave the price blank rather than store
+        # "$200" for a plot that is really $200/sqm.
+        rate = float(per_sqm.group(1).replace(",", ""))
+        area = re.search(r"([\d,]+(?:\.\d+)?)\s*sqm", parse_size(title) or "")
+        if area:
+            price = rate * float(area.group(1).replace(",", ""))
+            price_raw = f"${price:,.0f} (${rate:,.0f}/sqm)"
+        else:
+            price, price_raw = None, per_sqm.group(0)
     else:
         price_raw = None
 
@@ -199,6 +208,9 @@ def main():
     bulk = {d for d, c in counts.items() if c >= args.bulk_threshold}
     for it in parsed:
         it["undated"] = day(it["updated"]) in bulk
+        it["date_unknown"] = it["undated"]
+        if it["undated"]:
+            it["photo_max_width"] = 720  # keep ~1,800 extra photos from bloating docs/
     genuine = [it for it in parsed if not it["undated"]]
     undated = [it for it in parsed if it["undated"]]
     pool = parsed if args.include_undated else genuine
@@ -226,9 +238,12 @@ def main():
 
     inserted = 0
     with db.get_conn() as conn:
-        for it in kept:
+        for n, it in enumerate(kept, 1):
             if store(conn, SOURCE_NAME, it, "IPS Cambodia"):
                 inserted += 1
+            if n % 25 == 0:
+                conn.commit()  # a long run shouldn't lose everything if it stops
+                print(f"  ...stored {n}/{len(kept)}", flush=True)
     print(f"\ninserted {inserted} new listing(s) ({len(kept) - inserted} already in the database)")
 
 

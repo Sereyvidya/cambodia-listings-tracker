@@ -8,7 +8,8 @@ A parsed listing is a dict with: post_id, url, headline, province,
 commune, district, updated (aware datetime), price_value, price_raw,
 size_text, raw_text, photo_url, contact, listing_kind, site_coord
 ((lat, lon) or None), site_coord_ok (bool) -- and optionally
-property_type, bedrooms.
+property_type, bedrooms, date_unknown (bool: the site only gives a bulk
+date), photo_max_width (shrink the saved photo).
 """
 
 import re
@@ -128,7 +129,9 @@ def geocode_for(conn, it):
     return None
 
 
-def download_photo(source_name, post_id, photo_url):
+def download_photo(source_name, post_id, photo_url, max_width=None):
+    """Saves the listing's photo as <source>_<id>.jpg. max_width shrinks it
+    (and recompresses) -- used for bulk imports so docs/photos stays small."""
     if not photo_url:
         return []
     PHOTOS_DIR.mkdir(exist_ok=True)
@@ -139,7 +142,14 @@ def download_photo(source_name, post_id, photo_url):
     try:
         resp = fetch(photo_url)
         if resp.status_code == 200 and resp.content:
-            dest.write_bytes(resp.content)
+            if max_width:
+                from io import BytesIO
+                from PIL import Image
+                img = Image.open(BytesIO(resp.content)).convert("RGB")
+                img.thumbnail((max_width, max_width))
+                img.save(dest, "JPEG", quality=72, optimize=True)
+            else:
+                dest.write_bytes(resp.content)
             return [name]
     except requests.RequestException as e:
         print(f"  (photo failed for {post_id}: {e})")
@@ -163,7 +173,7 @@ def store(conn, source_name, it, posted_by):
         "sangkat": it["commune"] if has_both else None,
         "property_type": it.get("property_type", "land"), "bedrooms": it.get("bedrooms"),
         "size_text": it["size_text"], "listing_kind": it["listing_kind"], "contact": it["contact"],
-        "posted_by": posted_by, "photo_paths": download_photo(source_name, it["post_id"], it["photo_url"]),
+        "posted_by": posted_by, "photo_paths": download_photo(source_name, it["post_id"], it["photo_url"], it.get("photo_max_width")),
         "dedup_hash": extract.make_dedup_hash(it["price_value"], it["commune"], "land", it["raw_text"]),
         "source_maps_link": None,
     }
@@ -174,6 +184,8 @@ def store(conn, source_name, it, posted_by):
     row = conn.execute(
         "SELECT id FROM listings WHERE source_name=? AND message_id=?",
         (source_name, it["post_id"])).fetchone()
+    if it.get("date_unknown"):
+        db.set_date_unknown(conn, row["id"])
     if it["site_coord_ok"]:
         lat, lon = it["site_coord"]
         db.set_site_coordinate(conn, row["id"], lat, lon, geocode.maps_link(lat, lon))

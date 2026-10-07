@@ -103,6 +103,9 @@
   .tag.type-other { color: #7b4fb8; background: color-mix(in srgb, #7b4fb8 12%, transparent); border-color: color-mix(in srgb, #7b4fb8 30%, transparent); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.type-other { color: #b79be3; } }
   :root[data-theme="dark"] .tag.type-other { color: #b79be3; }
+  .tag.date-unknown { color: #8a6500; background: color-mix(in srgb, #e0a800 20%, transparent); border-color: color-mix(in srgb, #e0a800 45%, transparent); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.date-unknown { color: #f0c64a; } }
+  :root[data-theme="dark"] .tag.date-unknown { color: #f0c64a; }
   .text { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.45; max-height: 4.6em; overflow: hidden; }
   .meta {
     font-size: 0.74rem; color: var(--muted); margin-top: auto; padding-top: 8px;
@@ -205,14 +208,15 @@ function render() {
   filtered.forEach(l => {
     const price = l.price_value
       ? `$${Number(l.price_value).toLocaleString()}` + (l.price_currency === "KHR" ? ' <span class="note">(from riel, approx.)</span>' : "")
-      : "price not detected";
+      : (l.price_raw ? esc(l.price_raw) : "price not detected");
     const tags = [l.listing_kind, l.property_type, l.location, l.bedrooms ? `${l.bedrooms} bed` : null, l.size_text]
       .filter(Boolean).map(t => `<span class="tag${(t === l.property_type && l.property_type !== "land") ? " type-other" : ""}">${esc(String(t))}</span>`).join("");
     const precise = l.pin_tier === "real_link";
     const precisionTag = `<span class="tag ${precise ? 'pin-real' : 'pin-approx'}">${precise ? '&#10003; real map link' : (l.pin_basis === "site_coordinate" ? '~ approx. site coordinate' : '~ sangkat + khan')}</span>`;
     const img = (l.photo_paths && l.photo_paths.length)
       ? `<div class="img-wrap"><img src="photos/${esc(l.photo_paths[0])}" alt="" loading="lazy"></div>` : "";
-    const date = (l.posted_at || l.fetched_at || "").slice(0, 10);
+    const date = l.date_unknown ? "date unknown" : (l.posted_at || l.fetched_at || "").slice(0, 10);
+    const dateTag = l.date_unknown ? '<span class="tag date-unknown">date unknown</span>' : "";
     const mapLink = l.maps_link ? `<a href="${esc(l.maps_link)}" target="_blank" rel="noopener">${precise ? "map" : "approx. map"}</a> &middot; ` : "";
     const openLink = l.message_link ? `<a href="${esc(l.message_link)}" target="_blank" rel="noopener">open</a>` : "";
 
@@ -222,7 +226,7 @@ function render() {
       ${img}
       <div class="card-body">
         <div class="price ${l.price_value ? '' : 'unset'}">${price}</div>
-        <div class="tags">${tags}${precisionTag}</div>
+        <div class="tags">${tags}${precisionTag}${dateTag}</div>
         <div class="text">${esc(l.raw_text || "")}</div>
         <div class="meta">
           <span>${esc(l.source_name || "")} &middot; ${esc(date)}${l.posted_by ? " &middot; " + esc(l.posted_by) : ""}</span>

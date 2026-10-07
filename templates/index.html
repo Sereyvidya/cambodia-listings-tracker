@@ -111,6 +111,9 @@
   .tag.type-other { color: #7b4fb8; background: color-mix(in srgb, #7b4fb8 12%, transparent); border-color: color-mix(in srgb, #7b4fb8 30%, transparent); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.type-other { color: #b79be3; } }
   :root[data-theme="dark"] .tag.type-other { color: #b79be3; }
+  .tag.date-unknown { color: #8a6500; background: color-mix(in srgb, #e0a800 20%, transparent); border-color: color-mix(in srgb, #e0a800 45%, transparent); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .tag.date-unknown { color: #f0c64a; } }
+  :root[data-theme="dark"] .tag.date-unknown { color: #f0c64a; }
   .tag.pin-none { background: var(--rose-soft); color: var(--rose); border-color: var(--rose-soft-line); }
   .text { font-size: 0.83rem; color: var(--ink-soft); line-height: 1.45; max-height: 4.6em; overflow: hidden; }
   .meta {
@@ -215,7 +218,7 @@
           ${{ '{:,.0f}'.format(l.price_value) }}
           {% if l.price_currency == 'KHR' %}<span class="note">(from riel, approx.)</span>{% endif %}
         {% else %}
-          price not detected
+          {{ l.price_raw or 'price not detected' }}
         {% endif %}
       </div>
       <div class="tags">
@@ -227,10 +230,11 @@
         {% if l.pin_tier == 'real_link' %}<span class="tag pin-real">&#10003; real map link</span>
         {% elif l.pin_tier == 'sangkat_khan' %}<span class="tag pin-approx">{{ '~ approx. site coordinate' if l.pin_basis == 'site_coordinate' else '~ sangkat + khan' }}</span>
         {% else %}<span class="tag pin-none">no map pin</span>{% endif %}
+        {% if l.date_unknown %}<span class="tag date-unknown">date unknown</span>{% endif %}
       </div>
       <div class="text">{{ l.raw_text }}</div>
       <div class="meta">
-        <span>{{ l.source_name }} &middot; {{ (l.posted_at or l.fetched_at)[:10] }}{% if l.posted_by %} &middot; {{ l.posted_by }}{% endif %}</span>
+        <span>{{ l.source_name }} &middot; {{ 'date unknown' if l.date_unknown else (l.posted_at or l.fetched_at)[:10] }}{% if l.posted_by %} &middot; {{ l.posted_by }}{% endif %}</span>
         <span>
           {% if l.pin_link %}<a href="{{ l.pin_link }}" target="_blank">{{ 'real map' if l.pin_tier == 'real_link' else 'approx. map' }}</a> &middot;{% endif %}
           {% if l.message_link %}<a href="{{ l.message_link }}" target="_blank">open</a> &middot;{% endif %}

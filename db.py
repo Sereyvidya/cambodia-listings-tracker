@@ -110,6 +110,7 @@ _MIGRATED_COLUMNS = {
     "source_map_resolved_at": "TEXT",
     "is_duplicate_link": "INTEGER NOT NULL DEFAULT 0",
     "approx_coords": "INTEGER NOT NULL DEFAULT 0",
+    "date_unknown": "INTEGER NOT NULL DEFAULT 0",
     "khan": "TEXT",
     "sangkat": "TEXT",
 }
@@ -324,6 +325,12 @@ def set_site_coordinate(conn, listing_id, lat, lon, maps_link):
 
 
 RESOLVE_RETRY_DAYS = 3
+
+
+def set_date_unknown(conn, listing_id, unknown=True):
+    """Marks a listing whose source only gives a bulk-import date, so its
+    real age can't be known (shown in yellow on the map/list)."""
+    conn.execute("UPDATE listings SET date_unknown = ? WHERE id = ?", (1 if unknown else 0, listing_id))
 
 
 def listings_needing_source_map_resolve(conn):
