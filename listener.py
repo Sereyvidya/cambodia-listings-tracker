@@ -92,6 +92,7 @@ async def store_message(conn, cfg, group_label, message):
 async def backfill(client, cfg):
     ongoing_days = cfg["settings"].get("backfill_days", 14)
     first_time_days = cfg["settings"].get("first_time_backfill_days", ongoing_days)
+    failed = []
 
     with db.get_conn() as conn:
         for group in cfg["groups"]:
@@ -101,18 +102,30 @@ async def backfill(client, cfg):
 
             label = "ongoing" if seen_before else "first-time"
             print(f"Backfilling '{group}' (last {days} days, {label})...")
-            entity = await client.get_entity(group)
-            kept = 0
-            seen = 0
-            async for message in client.iter_messages(entity, offset_date=None):
-                if message.date and message.date < since:
-                    break
-                seen += 1
-                if message.message:
-                    if await store_message(conn, cfg, group, message):
-                        kept += 1
-            print(f"  scanned {seen} messages, kept {kept} as listing candidates")
-            db.mark_backfilled(conn, group)
+            # One unreachable channel (renamed, removed, rate-limited) must not
+            # take the others down with it -- and everything already pulled
+            # is committed per channel, not lost with the failing one.
+            try:
+                entity = await client.get_entity(group)
+                kept = 0
+                seen = 0
+                async for message in client.iter_messages(entity, offset_date=None):
+                    if message.date and message.date < since:
+                        break
+                    seen += 1
+                    if message.message:
+                        if await store_message(conn, cfg, group, message):
+                            kept += 1
+                print(f"  scanned {seen} messages, kept {kept} as listing candidates")
+                db.mark_backfilled(conn, group)
+                conn.commit()
+            except Exception as e:
+                conn.rollback()
+                failed.append(group)
+                print(f"  !! COULD NOT PULL '{group}': {type(e).__name__}: {e}")
+
+    if failed:
+        print(f"FAILED CHANNELS ({len(failed)}): {', '.join(failed)}")
 
 
 async def listen(client, cfg):
