@@ -133,7 +133,7 @@
     <div class="brand-mark"></div>
     <h1>Cambodia Listings Tracker</h1>
   </div>
-  <div class="sub"><span id="count"></span> &middot; <a href="map.html">view as map</a></div>
+  <div class="sub"><span id="updated" style="font-weight:600;"></span><span id="count"></span> &middot; <a href="map.html">view as map</a></div>
 </header>
 
 <form class="filters" id="filters">
@@ -245,6 +245,12 @@ document.getElementById("clear").addEventListener("click", e => {
   document.getElementById("filters").reset();
   render();
 });
+
+fetch("meta.json?" + Date.now()).then(r => r.json()).then(m => {
+  const t = new Date(m.updated_at);
+  document.getElementById("updated").textContent = "Updated " +
+    t.toLocaleString(undefined, {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}) + " \u00b7 ";
+}).catch(() => {});
 
 fetch("listings.json").then(r => r.json()).then(data => {
   listings = data;

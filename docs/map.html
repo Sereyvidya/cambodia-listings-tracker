@@ -113,6 +113,7 @@
     <span class="legend"><span class="dot" style="background:#2f5fa8;color:#2f5fa8;"></span>land: approximate (sangkat + khan, or a blurred site coordinate)</span>
     <span class="legend"><span class="dot" style="background:#7b4fb8;color:#7b4fb8;"></span>not land (house, villa, warehouse...)</span>
     <span class="legend"><span class="dot" style="background:#e0a800;color:#e0a800;"></span>date unknown (bulk-dated by the site)</span>
+    <span id="updated" style="font-weight:600;"></span>
     <span id="count"></span>
     <a href="index.html">view as list</a>
   </div>
@@ -244,6 +245,12 @@
     document.getElementById("filters").reset();
     render();
   });
+
+  fetch("meta.json?" + Date.now()).then(r => r.json()).then(m => {
+    const t = new Date(m.updated_at);
+    document.getElementById("updated").textContent = "Updated " +
+      t.toLocaleString(undefined, {weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit"}) + " \u00b7 ";
+  }).catch(() => {});
 
   fetch("listings.json").then(r => r.json()).then(data => {
     listings = data;

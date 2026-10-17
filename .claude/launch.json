@@ -4,8 +4,22 @@
     {
       "name": "dashboard",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["dashboard.py"],
+      "runtimeArgs": [
+        "dashboard.py"
+      ],
       "port": 5000
+    },
+    {
+      "name": "site-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "5001",
+        "--directory",
+        "docs"
+      ],
+      "port": 5001
     }
   ]
 }

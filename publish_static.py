@@ -16,6 +16,7 @@ Then commit and push docs/ to publish the update -- see README.md's
 
 import json
 import shutil
+from datetime import datetime, timezone
 from pathlib import Path
 
 import db
@@ -64,6 +65,9 @@ def export():
             existing.unlink()
             removed += 1
 
+    # The pages show this as "Updated ..." so anyone can tell how fresh the data is.
+    (DOCS_DIR / "meta.json").write_text(json.dumps(
+        {"updated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "count": len(listings)}))
     print(f"Exported {len(listings)} listings and their photos to {DOCS_DIR} ({removed} stale photo(s) removed)")
 
 
